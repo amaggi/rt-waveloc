@@ -24,6 +24,26 @@ def offset(trace, offset=0.0, rtmemory_list=None):
     trace.data += offset
     return trace.data
 
+def neg_to_zero(trace, rtmemory_list=None):
+    """
+    Set all negative values to zero
+
+    :type trace: :class:`~obspy.core.trace.Trace`
+    :param trace: :class:`~obspy.core.trace.Trace` object to append to this RtTrace
+    :type rtmemory_list: list of :class:`~obspy.realtime.rtmemory.RtMemory`, optional
+    :param rtmemory_list: Persistent memory used by this process for specified trace
+    :rtype: Numpy :class:`numpy.ndarray`
+    :return: Processed trace data from appended Trace object
+    """
+
+    if not isinstance(trace, Trace):
+        msg = "Trace parameter must be an obspy.core.trace.Trace object."
+        raise ValueError(msg)
+
+    trace.data[trace.data < 0.0] = 0.0
+    return trace.data
+
+
 def kurtosis(trace, win=3.0, rtmemory_list=None):
     """
     Apply recursive kurtosis calculation on data. Recursive kurtosis is computed
