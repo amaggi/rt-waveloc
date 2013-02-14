@@ -32,7 +32,6 @@ def kurtosis(trace, win=3.0, rtmemory_list=None):
     C2 = (1.0 - a1*a1)/2.0
     bias = -3*C1 - 3.0
 
-
     kappa4 = np.empty(npts, sample.dtype)
 
     # initialize the real-time memory needed to store
@@ -52,7 +51,7 @@ def kurtosis(trace, win=3.0, rtmemory_list=None):
         memory_size_input  = 1
         memory_size_output = 0
         rtmemory_mu2.initialize(sample.dtype, memory_size_input,\
-                                memory_size_output, 1, 1)
+                                memory_size_output, 1, 0)
 
     if not rtmemory_k4_bar.initialized:
         memory_size_input  = 1
