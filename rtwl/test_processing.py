@@ -13,6 +13,7 @@ def suite():
     suite.addTest(RtTests('test_rt_kurtosis'))
     suite.addTest(RtTests('test_rt_neg_to_zero'))
     suite.addTest(RtTests('test_rt_kurt_grad'))
+    suite.addTest(RtTests('test_kwin_bank'))
     return suite
 
     
@@ -131,10 +132,50 @@ class RtTests(unittest.TestCase):
         for tr in self.traces:
             rt_trace.append(tr, gap_overlap_check = True)
 
-        rt_trace.plot()
         diff=self.data_trace.copy()
         diff.data=rt_trace_single.data - rt_trace.data
         self.assertAlmostEquals(np.mean(np.abs(diff)), 0.0, 5)
+
+    def test_kwin_bank(self):
+        win_list=[1.0, 3.0, 9.0]
+        n_win = len(win_list)
+
+        data_trace = self.data_trace.copy()
+
+        sigma=float(np.std(data_trace.data))
+        fact = 1/sigma
+
+        # One RtTrace for processing before the kurtosis
+        rt_trace=RtTrace()
+        rt_trace.registerRtProcess('scale',factor=fact)
+
+        # One RtTrace per kurtosis window
+        kurt_traces=[]
+        for i in xrange(n_win):
+            rtt=RtTrace()
+            rtt.registerRtProcess('kurtosis',win=win_list[i])
+            kurt_traces.append(rtt)
+
+        # One RrTrace for post-processing the max kurtosis window
+        max_kurt=RtTrace()
+        max_kurt.registerRtProcess('differentiate')
+        max_kurt.registerRtProcess('neg_to_zero')
+
+        for tr in self.traces:
+            # do initial processing
+            proc_trace=rt_trace.append(tr, gap_overlap_check = True)
+            kurt_output=[]
+            for i in xrange(n_win):
+                # pass output of initial processing to the kwin bank
+                ko=kurt_traces[i].append(proc_trace, gap_overlap_check = True)
+                # append the output to the kurt_output list
+                kurt_output.append(ko.data)
+            kurt_stack=np.vstack(tuple(kurt_output))
+            kurt_tr=tr.copy()
+            kurt_tr.data=np.max(kurt_stack,axis=0)
+            max_kurt.append(kurt_tr)
+
+        #max_kurt.plot()
 
 if __name__ == '__main__':
 
