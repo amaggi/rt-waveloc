@@ -3,7 +3,7 @@ import numpy as np
 import am_rt_signal
 from numpy.testing import assert_array_almost_equal
 from obspy.realtime import RtTrace 
-from obspy import read
+from obspy import read, Stream
 
 
 def suite():
@@ -14,6 +14,7 @@ def suite():
     suite.addTest(RtTests('test_rt_neg_to_zero'))
     suite.addTest(RtTests('test_rt_kurt_grad'))
     suite.addTest(RtTests('test_kwin_bank'))
+    suite.addTest(FilterTests('test_bp_filterbank'))
     return suite
 
     
@@ -179,6 +180,37 @@ class RtTests(unittest.TestCase):
             max_kurt.append(kurt_tr)
 
         #max_kurt.plot()
+
+class FilterTests(unittest.TestCase):
+
+    def setUp(self):
+        # set up traces
+        self.data_trace = read('test_data/YA.UV15.00.HHZ.MSEED')[0]
+        # note : we are going to produce floating point output, so we need
+        # floating point input seismograms
+        x=self.data_trace.data.astype(np.float32)
+        self.data_trace.data=x
+        self.traces = self.data_trace / 3
+
+    def test_bp_filterbank(self):
+        st=Stream()
+        fst=Stream()
+        data_trace=self.data_trace.copy()
+        data_trace.data=np.zeros(400)
+        data_trace.data[200]=1*2*np.pi
+        freqmin=1.0
+        freqmax=4.0
+        freq_step=(freqmax-freqmin)/2.0
+        n_bank=5
+        for i in xrange(n_bank):
+            dtrace=data_trace.copy()
+            dtrace.filter('bandpass',freqmin=freqmin+i*freq_step, \
+                    freqmax=freqmax+i*freq_step, zerophase=True)
+            st.append(dtrace)
+            ftrace=self.data_trace.copy()
+            ftrace.data=np.convolve(ftrace.data,dtrace.data,'same')
+            #ftrace.plot()
+
 
 if __name__ == '__main__':
 
