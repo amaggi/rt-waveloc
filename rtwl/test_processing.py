@@ -8,8 +8,8 @@ from obspy import read
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(RtTests('test_rt_example'))
     suite.addTest(RtTests('test_rt_offset'))
+    suite.addTest(RtTests('test_rt_scale'))
     suite.addTest(RtTests('test_rt_kurtosis'))
     return suite
 
@@ -24,37 +24,15 @@ class RtTests(unittest.TestCase):
 
         # set up traces
         self.data_trace = read('test_data/YA.UV15.00.HHZ.MSEED')[0]
+        # note : we are going to produce floating point output, so we need
+        # floating point input seismograms
+        x=self.data_trace.data.astype(np.float32)
+        self.data_trace.data=x
         self.traces = self.data_trace / 3
 
-    @unittest.expectedFailure
-    def test_rt_example(self):
-
-        # filter in one bloc
-        data_trace = self.data_trace.copy()
-        data_trace.filter('bandpass', freqmin=4.0, freqmax=10.0)
-
-        # setup filtering of real-time trace
-        rt_trace = RtTrace()
-        #rt_trace.registerRtProcess(filter,type='bandpass',options={'freqmin':4.0, 'freqmax':10.0})
-
-        # run rt processing
-        for tr in self.traces:
-            tr.detrend(type='demean')
-            tr.filter('bandpass', freqmin=4.0, freqmax=10.0)
-            rt_trace.append(tr, gap_overlap_check=True)
-
-
-        diff=data_trace.copy()
-        diff.data=rt_trace.data-data_trace.data
-        #diff.plot()
-        self.assertAlmostEquals(np.mean(np.abs(diff)),0.0)
-    
     def test_rt_offset(self):
 
         offset=500
-
-        data_trace = self.data_trace.copy()
-        data_trace.data += offset
 
         rt_trace=RtTrace()
         rt_trace.registerRtProcess('offset',offset=offset)
@@ -67,24 +45,49 @@ class RtTests(unittest.TestCase):
         diff.data=rt_trace.data-self.data_trace.data
         self.assertAlmostEquals(np.mean(np.abs(diff)),offset)
 
+    def test_rt_scale(self):
+
+        data_trace = self.data_trace.copy()
+
+        fact=1/np.std(data_trace.data)
+
+        data_trace.data *= fact
+
+        rt_trace=RtTrace()
+        rt_trace.registerRtProcess('scale',factor=fact)
+
+        for tr in self.traces:
+            rt_trace.append(tr, gap_overlap_check = True)
+
+        diff=self.data_trace.copy()
+        diff.data=rt_trace.data-data_trace.data
+        self.assertAlmostEquals(np.mean(np.abs(diff)),0.0)
+
+
     def test_rt_kurtosis(self):
         from waveloc.filters import rec_kurtosis
         win=3.0
         data_trace = self.data_trace.copy()
+
+        sigma=float(np.std(data_trace.data))
+        fact = 1/sigma
+
         dt=data_trace.stats.delta
         C1=dt/float(win)
 
         x=data_trace.data
-        k=rec_kurtosis(x,C1)
+        ktrace=data_trace.copy()
+        ktrace.data=rec_kurtosis(x*fact,C1)
 
         rt_trace=RtTrace()
+        rt_trace.registerRtProcess('scale',factor=fact)
         rt_trace.registerRtProcess('kurtosis',win=win)
 
         for tr in self.traces:
             rt_trace.append(tr, gap_overlap_check = True)
    
         diff=self.data_trace.copy()
-        diff.data=rt_trace.data-k
+        diff.data=rt_trace.data-ktrace.data
         self.assertAlmostEquals(np.mean(np.abs(diff)),0.0)
 
 if __name__ == '__main__':
