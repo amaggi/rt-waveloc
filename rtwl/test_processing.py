@@ -11,6 +11,8 @@ def suite():
     suite.addTest(RtTests('test_rt_offset'))
     suite.addTest(RtTests('test_rt_scale'))
     suite.addTest(RtTests('test_rt_kurtosis'))
+    suite.addTest(RtTests('test_rt_neg_to_zero'))
+    suite.addTest(RtTests('test_rt_kurt_grad'))
     return suite
 
     
@@ -21,6 +23,7 @@ class RtTests(unittest.TestCase):
         rt_dict= obspy.realtime.rttrace.REALTIME_PROCESS_FUNCTIONS
         rt_dict['offset']=(am_rt_signal.offset,0)
         rt_dict['kurtosis']=(am_rt_signal.kurtosis,3)
+        rt_dict['neg_to_zero']=(am_rt_signal.neg_to_zero,0)
 
         # set up traces
         self.data_trace = read('test_data/YA.UV15.00.HHZ.MSEED')[0]
@@ -64,6 +67,7 @@ class RtTests(unittest.TestCase):
         self.assertAlmostEquals(np.mean(np.abs(diff)),0.0)
 
 
+    # skip this if not on a machine with a recent waveloc installed
     def test_rt_kurtosis(self):
         from waveloc.filters import rec_kurtosis
         win=3.0
@@ -89,6 +93,48 @@ class RtTests(unittest.TestCase):
         diff=self.data_trace.copy()
         diff.data=rt_trace.data-ktrace.data
         self.assertAlmostEquals(np.mean(np.abs(diff)),0.0)
+
+    def test_rt_neg_to_zero(self):
+
+        data_trace=self.data_trace.copy()
+        max_val=np.max(data_trace.data)
+        
+        rt_trace=RtTrace()
+        rt_trace.registerRtProcess('neg_to_zero')
+
+        for tr in self.traces:
+            rt_trace.append(tr, gap_overlap_check = True)
+
+        max_val_test=np.max(rt_trace.data)
+        min_val_test=np.min(rt_trace.data)
+        self.assertEqual(max_val, max_val_test)
+        self.assertEqual(0.0, min_val_test)
+
+    def test_rt_kurt_grad(self):
+        win=3.0
+        data_trace = self.data_trace.copy()
+
+        sigma=float(np.std(data_trace.data))
+        fact = 1/sigma
+
+        rt_trace=RtTrace()
+        rt_trace_single = RtTrace()
+
+        for rtt in [rt_trace, rt_trace_single]:
+            rtt.registerRtProcess('scale',factor=fact)
+            rtt.registerRtProcess('kurtosis',win=win)
+            rtt.registerRtProcess('differentiate')
+            rtt.registerRtProcess('neg_to_zero')
+
+        rt_trace_single.append(data_trace)
+        
+        for tr in self.traces:
+            rt_trace.append(tr, gap_overlap_check = True)
+
+        rt_trace.plot()
+        diff=self.data_trace.copy()
+        diff.data=rt_trace_single.data - rt_trace.data
+        self.assertAlmostEquals(np.mean(np.abs(diff)), 0.0, 5)
 
 if __name__ == '__main__':
 
