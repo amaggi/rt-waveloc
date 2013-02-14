@@ -162,6 +162,8 @@ class RtTests(unittest.TestCase):
         max_kurt.registerRtProcess('neg_to_zero')
 
         for tr in self.traces:
+            # prepare memory for kurtosis
+            kurt_tr=tr.copy()
             # do initial processing
             proc_trace=rt_trace.append(tr, gap_overlap_check = True)
             kurt_output=[]
@@ -170,9 +172,10 @@ class RtTests(unittest.TestCase):
                 ko=kurt_traces[i].append(proc_trace, gap_overlap_check = True)
                 # append the output to the kurt_output list
                 kurt_output.append(ko.data)
+            # stack the output of the kwin bank and find maximum
             kurt_stack=np.vstack(tuple(kurt_output))
-            kurt_tr=tr.copy()
             kurt_tr.data=np.max(kurt_stack,axis=0)
+            # append to the max_kurt RtTrace for post-processing
             max_kurt.append(kurt_tr)
 
         #max_kurt.plot()
