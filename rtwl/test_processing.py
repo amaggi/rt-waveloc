@@ -10,6 +10,7 @@ def suite():
     suite = unittest.TestSuite()
     suite.addTest(RtTests('test_rt_example'))
     suite.addTest(RtTests('test_rt_offset'))
+    suite.addTest(RtTests('test_rt_kurtosis'))
     return suite
 
     
@@ -19,11 +20,13 @@ class RtTests(unittest.TestCase):
         import obspy.realtime
         rt_dict= obspy.realtime.rttrace.REALTIME_PROCESS_FUNCTIONS
         rt_dict['offset']=(am_rt_signal.offset,0)
+        rt_dict['kurtosis']=(am_rt_signal.kurtosis,3)
 
         # set up traces
         self.data_trace = read('test_data/YA.UV15.00.HHZ.MSEED')[0]
         self.traces = self.data_trace / 3
 
+    @unittest.expectedFailure
     def test_rt_example(self):
 
         # filter in one bloc
@@ -64,7 +67,25 @@ class RtTests(unittest.TestCase):
         diff.data=rt_trace.data-self.data_trace.data
         self.assertAlmostEquals(np.mean(np.abs(diff)),offset)
 
+    def test_rt_kurtosis(self):
+        from waveloc.filters import rec_kurtosis
+        win=3.0
+        data_trace = self.data_trace.copy()
+        dt=data_trace.stats.delta
+        C1=dt/float(win)
+
+        x=data_trace.data
+        k=rec_kurtosis(x,C1)
+
+        rt_trace=RtTrace()
+        rt_trace.registerRtProcess('kurtosis',win=win)
+
+        for tr in self.traces:
+            rt_trace.append(tr, gap_overlap_check = True)
    
+        diff=self.data_trace.copy()
+        diff.data=rt_trace.data-k
+        self.assertAlmostEquals(np.mean(np.abs(diff)),0.0)
 
 if __name__ == '__main__':
 
