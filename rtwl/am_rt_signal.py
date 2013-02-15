@@ -138,3 +138,31 @@ def kurtosis(trace, win=3.0, rtmemory_list=None):
     rtmemory_k4_bar.input[0] = k4_bar_last
 
     return kappa4
+
+def convolve(trace, function=None, rtmemory_list=None):
+    """
+    Add the specified offset to the data.
+
+    :type trace: :class:`~obspy.core.trace.Trace`
+    :param trace: :class:`~obspy.core.trace.Trace` object to append to this RtTrace
+    :type function: :class:`numpy.ndarray`, optional
+    :param function: function with which to perform convolution
+    :type rtmemory_list: list of :class:`~obspy.realtime.rtmemory.RtMemory`, optional
+    :param rtmemory_list: Persistent memory used by this process for specified trace
+    :rtype: Numpy :class:`numpy.ndarray`
+    :return: Processed trace data from appended Trace object
+    """
+
+    if not isinstance(trace, Trace):
+        msg = "Trace parameter must be an obspy.core.trace.Trace object."
+        raise ValueError(msg)
+
+    if function == None :
+        return trace
+
+    x=trace.data.astype(complex)
+    x_new = np.real(np.convolve(trace.data,function,'same'))
+
+    return x_new
+
+

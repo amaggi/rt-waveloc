@@ -13,8 +13,10 @@ def suite():
     suite.addTest(RtTests('test_rt_kurtosis'))
     suite.addTest(RtTests('test_rt_neg_to_zero'))
     suite.addTest(RtTests('test_rt_kurt_grad'))
+    suite.addTest(RtTests('test_rt_gaussian_filter'))
     suite.addTest(RtTests('test_kwin_bank'))
     suite.addTest(FilterTests('test_bp_filterbank'))
+    suite.addTest(FilterTests('test_gaussian_filter'))
     return suite
 
     
@@ -26,6 +28,7 @@ class RtTests(unittest.TestCase):
         rt_dict['offset']=(am_rt_signal.offset,0)
         rt_dict['kurtosis']=(am_rt_signal.kurtosis,3)
         rt_dict['neg_to_zero']=(am_rt_signal.neg_to_zero,0)
+        rt_dict['convolve']=(am_rt_signal.convolve,0)
 
         # set up traces
         self.data_trace = read('test_data/YA.UV15.00.HHZ.MSEED')[0]
@@ -113,7 +116,7 @@ class RtTests(unittest.TestCase):
         self.assertEqual(0.0, min_val_test)
 
     def test_rt_kurt_grad(self):
-        win=3.0
+        win=3.0 
         data_trace = self.data_trace.copy()
 
         sigma=float(np.std(data_trace.data))
@@ -138,7 +141,7 @@ class RtTests(unittest.TestCase):
         self.assertAlmostEquals(np.mean(np.abs(diff)), 0.0, 5)
 
     def test_kwin_bank(self):
-        win_list=[1.0, 3.0, 9.0]
+        win_list=[1.0, 3.0, 9.0] 
         n_win = len(win_list)
 
         data_trace = self.data_trace.copy()
@@ -164,7 +167,7 @@ class RtTests(unittest.TestCase):
 
         for tr in self.traces:
             # prepare memory for kurtosis
-            kurt_tr=tr.copy()
+            kurt_tr=tr.copy() 
             # do initial processing
             proc_trace=rt_trace.append(tr, gap_overlap_check = True)
             kurt_output=[]
@@ -181,6 +184,31 @@ class RtTests(unittest.TestCase):
 
         #max_kurt.plot()
 
+    def test_rt_gaussian_filter(self):
+        from am_signal import gaussian_filter
+
+        data_trace = self.data_trace.copy()
+        gauss5 = gaussian_filter(1.0, 5.0, 0.01)
+
+        rt_trace=RtTrace()
+        rt_single=RtTrace()
+        for rtt in [rt_trace, rt_single]:
+            rtt.registerRtProcess('convolve',function=gauss5)
+
+        rt_single.append(data_trace, gap_overlap_check = True)
+
+        for tr in self.traces:
+            rt_trace.append(tr, gap_overlap_check = True)
+
+        diff=self.data_trace.copy()
+        diff.data=rt_trace.data-rt_single.data
+        #rt_trace.plot()
+        diff.plot()
+        self.assertAlmostEquals(np.mean(np.abs(diff)),0.0)
+
+
+
+@unittest.skip('Skipping filter tests')
 class FilterTests(unittest.TestCase):
 
     def setUp(self):
@@ -211,6 +239,21 @@ class FilterTests(unittest.TestCase):
             ftrace.data=np.convolve(ftrace.data,dtrace.data,'same')
             #ftrace.plot()
 
+
+
+    def test_gaussian_filter(self):
+        from am_signal import gaussian_filter
+        import matplotlib.pyplot as plt
+
+        gauss1, t=gaussian_filter(1.0, 1.0, 0.01)
+        gauss5, t=gaussian_filter(1.0, 5.0, 0.01)
+
+        self.assertAlmostEquals(t[np.argmax(gauss1)],0)
+
+        data_trace1=self.data_trace.copy()
+        data_trace5=self.data_trace.copy()
+        data_trace1.data=np.convolve(data_trace1.data,gauss1,'same')
+        data_trace5.data=np.convolve(data_trace5.data,gauss5,'same')
 
 if __name__ == '__main__':
 
