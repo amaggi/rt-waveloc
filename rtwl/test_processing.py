@@ -28,7 +28,7 @@ class RtTests(unittest.TestCase):
 #        rt_dict['offset']=(am_rt_signal.offset,0)
 #        rt_dict['kurtosis']=(am_rt_signal.kurtosis,3)
         rt_dict['neg_to_zero']=(am_rt_signal.neg_to_zero,0)
-        rt_dict['convolve']=(am_rt_signal.convolve,0)
+        rt_dict['convolve']=(am_rt_signal.convolve,1)
 
         # set up traces
         self.data_trace = read('test_data/YA.UV15.00.HHZ.MSEED')[0]
@@ -188,7 +188,7 @@ class RtTests(unittest.TestCase):
         from am_signal import gaussian_filter
 
         data_trace = self.data_trace.copy()
-        gauss5 = gaussian_filter(1.0, 5.0, 0.01)
+        gauss5,tshift = gaussian_filter(1.0, 5.0, 0.01)
 
         rt_trace=RtTrace()
         rt_single=RtTrace()
@@ -198,13 +198,17 @@ class RtTests(unittest.TestCase):
         rt_single.append(data_trace, gap_overlap_check = True)
 
         for tr in self.traces:
+            # pre-apply inversed time-shift before appending data
+            tr.stats.starttime -= tshift
             rt_trace.append(tr, gap_overlap_check = True)
 
+        # test the waveforms are the same
         diff=self.data_trace.copy()
         diff.data=rt_trace.data-rt_single.data
-        #rt_trace.plot()
-        diff.plot()
         self.assertAlmostEquals(np.mean(np.abs(diff)),0.0)
+        # test the time-shifts
+        starttime_diff=rt_single.stats.starttime-self.data_trace.stats.starttime
+        self.assertAlmostEquals(starttime_diff,0.0)
 
 
 
