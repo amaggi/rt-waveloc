@@ -162,9 +162,43 @@ def convolve(trace, function=None, rtmemory_list=None):
     if function == None :
         return trace
 
-    x=trace.data.astype(complex)
-    x_new = np.real(np.convolve(trace.data,function,'same'))
+    if not rtmemory_list:
+        rtmemory_list=[RtMemory()]
 
-    return x_new
+    # deal with case of empty trace
+    sample = trace.data
+    if np.size(sample) < 1:
+        return sample
+
+    first_trace=False
+    flen=len(function)
+    flen2=(flen-1)/2
+    mem_size=3*flen2+1
+
+    rtmemory=rtmemory_list[0]
+    if not rtmemory.initialized:
+        first_trace=True
+        memory_size_input  = mem_size
+        memory_size_output = 0
+        rtmemory.initialize(sample.dtype, memory_size_input,\
+                                memory_size_output, 0, 0)
+
+
+    # make an array of the right dimension
+    x=np.empty(len(sample)+mem_size, dtype=complex)
+    # fill it up partly with the memory, partly with the new data
+    x[0:mem_size]=rtmemory.input[:]
+    x[mem_size:]=sample[:]
+
+    # do the convolution
+    x_new = np.real(np.convolve(x,function,'same'))
+    i_start=mem_size-flen2
+    i_end=i_start+len(sample)
+    
+    # put new data into memory for next trace
+    
+    rtmemory.updateInput(sample)
+
+    return x_new[i_start:i_end]
 
 
