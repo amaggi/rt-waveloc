@@ -3,9 +3,21 @@ from numpy import pi, sqrt, exp
 
 def gaussian_filter(sigma_f, f0, dt):
     """
-    Returns the time-domain expression of the gaussian filter
-    of width sigma_f centered at f0, for a signal with
-    sampling interval dt.
+    Calculates the time-domain impulse response of the gaussian filter of width
+    sigma_f centered at f0, for a signal with sampling interval dt. All
+    frequencies are expressed in Hz.
+
+    :type sigma_f: float
+    :param sigma_f: half-width of the gaussian filter in the frequency domain
+    :type f0: float
+    :param f0: center frequency of the filter
+    :type dt: float
+    :param dt: sampling interval in seconds for the output impulse response
+    :rtype gauss: Numpy :class:`numpy.ndarray`
+    :return gauss: The time domain impulse response
+    :rtype tshift: float
+    :return tshift: The time-shift corresponding to this filter
+    "
     """
     # calculate the width of the gaussian in the time domain
     sigma_t = 1 / (2*pi*sigma_f)
