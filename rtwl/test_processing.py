@@ -193,7 +193,7 @@ class RtTests(unittest.TestCase):
         rt_trace=RtTrace()
         rt_single=RtTrace()
         for rtt in [rt_trace, rt_single]:
-            rtt.registerRtProcess('convolve',function=gauss5)
+            rtt.registerRtProcess('convolve',conv_signal=gauss5)
 
         rt_single.append(data_trace, gap_overlap_check = True)
 

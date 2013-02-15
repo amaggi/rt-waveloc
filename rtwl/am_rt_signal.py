@@ -141,14 +141,23 @@ def neg_to_zero(trace, rtmemory_list=None):
 #
 #    return kappa4
 
-def convolve(trace, function=None, rtmemory_list=None):
+def convolve(trace, conv_signal=None, rtmemory_list=None):
     """
-    Add the specified offset to the data.
+    Convolve data with a (complex) signal (conv_signal). 
+
+    Note that the signal length should be odd. For a signal of (2N+1) points,
+    the resulting output trace will be time shifted by -N*dt where dt is the
+    sampling rate of the trace. You may want to consider shifting the trace
+    starttime by the same amount before appending to this RtTrace ::
+
+        tshift = N*dt
+        tr.stats.starttime -= tshift
+        someRtTrace.append(tr)
 
     :type trace: :class:`~obspy.core.trace.Trace`
     :param trace: :class:`~obspy.core.trace.Trace` object to append to this RtTrace
-    :type function: :class:`numpy.ndarray`, optional
-    :param function: function with which to perform convolution
+    :type conv_signal: :class:`numpy.ndarray`, optional
+    :param conv_signal: signal with which to perform convolution
     :type rtmemory_list: list of :class:`~obspy.realtime.rtmemory.RtMemory`, optional
     :param rtmemory_list: Persistent memory used by this process for specified trace
     :rtype: Numpy :class:`numpy.ndarray`
@@ -159,7 +168,7 @@ def convolve(trace, function=None, rtmemory_list=None):
         msg = "Trace parameter must be an obspy.core.trace.Trace object."
         raise ValueError(msg)
 
-    if function == None :
+    if conv_signal == None :
         return trace
 
     if not rtmemory_list:
@@ -170,8 +179,7 @@ def convolve(trace, function=None, rtmemory_list=None):
     if np.size(sample) < 1:
         return sample
 
-    first_trace=False
-    flen=len(function)
+    flen=len(conv_signal)
     flen2=(flen-1)/2
     mem_size=3*flen2+1
 
@@ -191,7 +199,7 @@ def convolve(trace, function=None, rtmemory_list=None):
     x[mem_size:]=sample[:]
 
     # do the convolution
-    x_new = np.real(np.convolve(x,function,'same'))
+    x_new = np.real(np.convolve(x,conv_signal,'same'))
     i_start=mem_size-flen2
     i_end=i_start+len(sample)
     
