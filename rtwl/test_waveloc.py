@@ -19,7 +19,7 @@ class SetupTests(unittest.TestCase):
 
 if __name__ == '__main__':
 
-  import test_processing, test_nllstuff, test_hdf5
+  import test_processing, test_nllstuff, test_hdf5, test_migration
   import logging
   logging.basicConfig(level=logging.INFO, format='%(levelname)s : %(asctime)s : %(message)s')
  
@@ -28,6 +28,7 @@ if __name__ == '__main__':
     test_processing.suite(),
     test_nllstuff.suite(),
     test_hdf5.suite(),
+    test_migration.suite(),
     ]
 
   alltests=unittest.TestSuite(suite_list)
