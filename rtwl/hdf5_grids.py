@@ -61,12 +61,22 @@ class H5SingleGrid(object):
     def __del__(self):
         self._f.close()
 
+    def value_at_point(self,x,y,z):
+        """
+        Performs 3D interpolation for a single point
+        """
+        x_array=np.array([x,x])
+        y_array=np.array([y,y])
+        z_array=np.array([z,z])
 
-    def value_at_points(self,x,y,z,epsilon=0.001):
+        result = self.value_at_points(x_array, y_array, z_array)
+        return result[0]
+
+    def value_at_points(self,x,y,z):
         """
         Performs 3D interpolation on the regular grid.
 
-        Uses scipy.ndimage
+        Uses scipy.ndimage. Works on numpy arrays of points
 
         """
         grid_data = np.empty(self.grid_data.shape, dtype=float)

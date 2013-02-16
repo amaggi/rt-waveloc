@@ -314,6 +314,9 @@ class H5SingleGridTests(unittest.TestCase):
     np.testing.assert_array_almost_equal(interp,true_answer,2)
     np.testing.assert_array_almost_equal(new_interp,true_answer,2)
 
+    interp1=sg.value_at_point(x[0],y[0],z[0])
+    self.assertEquals(interp1, interp[0])
+
     del sg
     del new_sg
     del data
