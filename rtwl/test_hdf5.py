@@ -258,7 +258,6 @@ class H5SingleGridTests(unittest.TestCase):
     del data
     os.remove(filename)
 
-  @unittest.skip('Skip for now')    
   def test_interpolation_newgrid(self):
 
     data=np.zeros((100,200,50))
@@ -293,11 +292,11 @@ class H5SingleGridTests(unittest.TestCase):
     data[:,:,0]=data1.T
     
 
-    ix=np.random.randint(new_info['nx'])
-    iy=np.random.randint(new_info['ny'])
+    ix=np.random.randint(new_info['nx'],size=5)
+    iy=np.random.randint(new_info['ny'],size=5)
     x=ix*new_info['dx']+new_info['x_orig']
     y=iy*new_info['dy']+new_info['y_orig']
-    z=new_info['z_orig']
+    z=np.ones(5)*new_info['z_orig']
 
     true_answer=np.sin(x**2 + y**2) / (x**2 + y**2)
 
@@ -309,11 +308,11 @@ class H5SingleGridTests(unittest.TestCase):
     new_sg=sg.interp_to_newgrid(new_filename,new_info)
 
 
-    interp=sg.value_at_point(x,y,z)
-    new_interp=new_sg.value_at_point(x,y,z)
+    interp=sg.value_at_points(x,y,z)
+    new_interp=new_sg.value_at_points(x,y,z)
 
-    self.assertAlmostEqual(interp,true_answer,2)
-    self.assertAlmostEqual(new_interp,true_answer,2)
+    np.testing.assert_array_almost_equal(interp,true_answer,2)
+    np.testing.assert_array_almost_equal(new_interp,true_answer,2)
 
     del sg
     del new_sg

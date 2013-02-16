@@ -105,21 +105,23 @@ class H5SingleGrid(object):
         for key,value in new_grid_info.iteritems():
             buf.attrs[key]=value
 
-        #initialize new buffer
+        #set coordinates for interpolation
+        npts=nx*ny*nz
+        new_shape=(nx,ny,nz)
+        x = np.empty(npts,dtype=float)
+        y = np.empty(npts,dtype=float)
+        z = np.empty(npts,dtype=float)
 
-        new_x=np.arange(nx)*dx+x_orig
-        new_y=np.arange(ny)*dy+y_orig
-        new_z=np.arange(nz)*dz+z_orig
+        for i in xrange(npts):
+            ix,iy,iz = np.unravel_index(i,(new_shape))
+            x[i]=x_orig+ix*dx
+            y[i]=y_orig+iy*dy
+            z[i]=z_orig+iz*dz
 
-        # loop doing interpolation
-        for ix in xrange(nx):
-            x=new_x[ix]
-            for iy in xrange(ny):
-                y=new_y[iy]
-                for iz in xrange(nz):
-                    z=new_z[iz]
-                    buf[np.ravel_multi_index((ix,iy,iz),(nx,ny,nz))]=self.value_at_point(x,y,z)
+        # do interpolation
+        buf[:] = self.value_at_points(x,y,z)
 
+        # close the old grid file
         f.close()
 
         # create the new Grid file and object
