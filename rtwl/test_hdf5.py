@@ -217,7 +217,6 @@ class H5SingleGridTests(unittest.TestCase):
     del sg
     os.remove(filename)
     
-  @unittest.skip('Skip for now')    
   def test_interpolation_sinc(self):
 
     data=np.zeros((100,200,50))
@@ -241,9 +240,9 @@ class H5SingleGridTests(unittest.TestCase):
     data[:,:,0]=data1.T
     
 
-    x=np.random.rand()*info['nx']*info['dx']+info['x_orig']
-    y=np.random.rand()*info['ny']*info['dy']+info['y_orig']
-    z=info['z_orig']
+    x=np.random.rand(5)*info['nx']*info['dx']+info['x_orig']
+    y=np.random.rand(5)*info['ny']*info['dy']+info['y_orig']
+    z=np.ones(5)*info['z_orig']
 
     true_answer=np.sin(x**2 + y**2) / (x**2 + y**2)
 
@@ -251,9 +250,9 @@ class H5SingleGridTests(unittest.TestCase):
     filename='interpolate.hdf5'
     if os.path.isfile(filename): os.remove(filename)
     sg=H5SingleGrid(filename,data.flatten(),info)
-    interp=sg.value_at_point(x,y,z)
+    interp=sg.value_at_points(x,y,z)
 
-    self.assertAlmostEqual(interp,true_answer,2)
+    np.testing.assert_array_almost_equal(interp,true_answer,2)
 
     del sg
     del data
