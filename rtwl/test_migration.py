@@ -28,44 +28,35 @@ class SyntheticMigrationTests(unittest.TestCase):
         # get grid extent from first time-grid
         tgrid = self.time_grids[0]
 
-        tmp=np.array([0.15, 0.35, 0.75])
-
-        # set up three events
-        #self.x = np.random.rand(3) * tgrid.grid_info['nx'] * tgrid.grid_info['dx'] \
-        self.x = np.array([0.25,0.5,0.75]) * tgrid.grid_info['nx'] * tgrid.grid_info['dx'] \
+        # set up an event at the center of the grid
+        self.x = 0.5 * tgrid.grid_info['nx'] * tgrid.grid_info['dx'] \
                 + tgrid.grid_info['x_orig']
-        #self.y = np.random.rand(3) * tgrid.grid_info['ny'] * tgrid.grid_info['dy'] \
-        self.y = np.array([0.25,0.5,0.75]) * tgrid.grid_info['ny'] * tgrid.grid_info['dy'] \
+        self.y = 0.5 * tgrid.grid_info['ny'] * tgrid.grid_info['dy'] \
                 + tgrid.grid_info['y_orig']
-        #self.z = np.random.rand(3) * tgrid.grid_info['nz'] * tgrid.grid_info['dz'] \
-        self.z = np.array([0.33333,0.5,0.66666]) * tgrid.grid_info['nz'] * tgrid.grid_info['dz'] \
+        self.z = 0.5 * tgrid.grid_info['nz'] * tgrid.grid_info['dz'] \
                 + tgrid.grid_info['z_orig']
-        #amp = np.random.rand(3)
-        amp = np.ones(3)
 
         # set up some synthetic parameters
         self.dt=0.01
         t = np.arange(10000) * self.dt
         #self.ot = np.random.rand(3)*70
-        self.ot = np.array([30, 50, 70])
-        self.starttime=UTCDateTime(2013,01,01)
+        self.ot = 50
+        self.starttime=UTCDateTime(2013,03,01)
         g_width=0.2
 
         # create observations
         self.obs_list=[]
         for tgrid in self.time_grids:
-            ttime = tgrid.value_at_points(self.x,self.y,self.z)
+            ttime = tgrid.value_at_point(self.x,self.y,self.z)
             ttime = np.round(ttime / self.dt) * self.dt
             tobs = ttime+self.ot
             # set up stats
             sta=tgrid.grid_info['station']
             stats={'network':'ST', 'station':sta,\
-                    'channel':'HHZ', 'npts':len(t), 'sampling_rate':self.dt,\
+                    'channel':'HHZ', 'npts':len(t), 'delta':self.dt,\
                     'starttime':self.starttime}
             # set up seismogram
-            seis=  amp[0]*np.exp(-0.5*(t-tobs[0])**2 / (g_width**2) ) +\
-                   amp[1]*np.exp(-0.5*(t-tobs[1])**2 / (g_width**2) ) +\
-                   amp[2]*np.exp(-0.5*(t-tobs[2])**2 / (g_width**2) )
+            seis=  np.exp(-0.5*(t-tobs)**2 / (g_width**2) ) 
             tr = Trace(data=seis,header=stats)
             self.obs_list.append(tr)
             #tr.plot()
@@ -77,7 +68,10 @@ class SyntheticMigrationTests(unittest.TestCase):
 
         # set up sta-times matrix
         # each row contains ttimes for all points of interest for one station
-        ttimes_list=[tgrid.value_at_points(self.x, self.y, self.z) \
+        x=np.array([self.x, self.x+3.0])
+        y=np.array([self.y, self.y+3.0])
+        z=np.array([self.z, self.z+1.0])
+        ttimes_list=[tgrid.value_at_points(x, y, z) \
                 for tgrid in self.time_grids]
         ttimes_matrix=np.vstack(ttimes_list)
         ttimes_matrix=np.round(ttimes_matrix / self.dt) * self.dt
@@ -95,9 +89,10 @@ class SyntheticMigrationTests(unittest.TestCase):
             common_start=max([tr.stats.starttime for tr in tr_list])
             common_end  =min([tr.stats.endtime for tr in tr_list])
             # stack common parts of traces
-            tr_common=np.vstack([tr.slice(common_start, common_end).data for tr in tr_list])
+            for tr in tr_list:
+                tr.trim(common_start, common_end)
+            tr_common=np.vstack([tr.data for tr in tr_list])
             diff=tr_common[0,:] - tr_common[5,:]
-            print np.max(diff), np.argmax(diff)
             stack_trace=np.sum(tr_common, axis=0)
             # set up output seismogram
             tr=tr_list[0].copy()
@@ -106,29 +101,35 @@ class SyntheticMigrationTests(unittest.TestCase):
             tr.stats.npts = len(stack_trace)
             tr.data[:]=stack_trace[:]
             # append
-            tr.plot()
+            #tr.plot()
             stack_list.append(tr)
+
 
         # do final stack
         # find common start and end time
         common_start=max([tr.stats.starttime for tr in stack_list])
         common_end  =min([tr.stats.endtime for tr in stack_list])
+        for tr in stack_list:
+            tr.trim(common_start, common_end)
         # stack common parts of traces
-        tr_common=np.vstack([tr.slice(common_start, common_end).data for tr in stack_list])
+        tr_common=np.vstack([tr.data for tr in stack_list])
         max_trace=np.max(tr_common, axis=0)
         max_trace_id=np.argmax(tr_common, axis=0)
-        t=np.arange(len(max_trace))*self.dt
-        plt.plot(t,max_trace_id,'bo')
-        plt.show()
-        diff=tr_common[0,:]-tr_common[2,:]
-        print np.max(diff)
+        #t=np.arange(len(max_trace))*self.dt
+        #plt.plot(t,max_trace_id,'bo')
+        #plt.show()
         # set up output seismogram
         tr=stack_list[0].copy()
         tr.stats.station = 'MAX'
         tr.stats.starttime = common_start
         tr.stats.npts = len(max_trace)
         tr.data=max_trace
-        tr.plot()
+        #tr.plot()
+
+        # check we find the same absolute origin time
+        tmax=np.argmax(max_trace)*self.dt
+        tdiff=(tr.stats.starttime + tmax)-(self.starttime + self.ot)
+        self.assertEquals(tdiff,0)
  
 
 
