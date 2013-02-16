@@ -188,7 +188,6 @@ class H5SingleGridTests(unittest.TestCase):
     nll2hdf5(nll_name,h5_name)
     self.assertTrue(os.path.isfile(h5_name))
 
-  @unittest.skip('Skip for now')    
   def test_interpolation_ones(self):
 
     data=np.ones((100,200,50)).flatten()
@@ -203,17 +202,17 @@ class H5SingleGridTests(unittest.TestCase):
     info['y_orig']=30.
     info['z_orig']=15.
     
-    x=np.random.rand()*info['nx']*info['dx']+info['x_orig']
-    y=np.random.rand()*info['ny']*info['dy']+info['y_orig']
-    z=np.random.rand()*info['nz']*info['dz']+info['z_orig']
+    x=np.random.rand(5)*info['nx']*info['dx']+info['x_orig']
+    y=np.random.rand(5)*info['ny']*info['dy']+info['y_orig']
+    z=np.random.rand(5)*info['nz']*info['dz']+info['z_orig']
 
     # put this data in a hdf5 file
     filename='interpolate.hdf5'
     if os.path.isfile(filename): os.remove(filename)
     sg=H5SingleGrid(filename,data,info)
-    interp=sg.value_at_point(x,y,z)
+    interp=sg.value_at_points(x,y,z)
 
-    self.assertAlmostEqual(interp,1.)
+    self.assertAlmostEqual(np.mean(interp),1.)
 
     del sg
     os.remove(filename)
