@@ -25,8 +25,8 @@ class RtTests(unittest.TestCase):
     def setUp(self):
         import obspy.realtime
         rt_dict= obspy.realtime.rttrace.REALTIME_PROCESS_FUNCTIONS
-#        rt_dict['offset']=(am_rt_signal.offset,0)
-#        rt_dict['kurtosis']=(am_rt_signal.kurtosis,3)
+        rt_dict['offset']=(am_rt_signal.offset,0)
+        rt_dict['kurtosis']=(am_rt_signal.kurtosis,3)
         rt_dict['neg_to_zero']=(am_rt_signal.neg_to_zero,0)
         rt_dict['convolve']=(am_rt_signal.convolve,1)
 
