@@ -1,18 +1,25 @@
 import unittest, os, glob
 import numpy as np
+import am_rt_signal 
 from obspy.core import Trace, UTCDateTime
+from obspy.realtime import RtTrace
 from options import RtWavelocOptions
 from hdf5_grids import H5SingleGrid
 
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(SyntheticMigrationTests('test_migration_true'))
+    suite.addTest(SyntheticMigrationTests('test_rt_migration_true'))
     return suite
 
 class SyntheticMigrationTests(unittest.TestCase):
 
     def setUp(self):
-        import matplotlib.pyplot as plt
+        import obspy.realtime
+        rt_dict= obspy.realtime.rttrace.REALTIME_PROCESS_FUNCTIONS
+        rt_dict['neg_to_zero']=(am_rt_signal.neg_to_zero,0)
+        rt_dict['convolve']=(am_rt_signal.convolve,1)
+        
         self.wo = RtWavelocOptions()
         self.wo.verify_base_path()
         self.wo.verify_lib_dir()
@@ -60,11 +67,14 @@ class SyntheticMigrationTests(unittest.TestCase):
             tr = Trace(data=seis,header=stats)
             self.obs_list.append(tr)
             #tr.plot()
-
+        self.obs_split=[]
+        for obs in self.obs_list:
+            obs_split = obs / 3
+            self.obs_split.append(obs_split)
 
 
     def test_migration_true(self):
-        import matplotlib.pyplot as plt
+        #import matplotlib.pyplot as plt
 
         # set up sta-times matrix
         # each row contains ttimes for all points of interest for one station
@@ -90,9 +100,8 @@ class SyntheticMigrationTests(unittest.TestCase):
             common_end  =min([tr.stats.endtime for tr in tr_list])
             # stack common parts of traces
             for tr in tr_list:
-                tr.slice(common_start, common_end)
+                tr.trim(common_start, common_end)
             tr_common=np.vstack([tr.data for tr in tr_list])
-            diff=tr_common[0,:] - tr_common[5,:]
             stack_trace=np.sum(tr_common, axis=0)
             # set up output seismogram
             tr=tr_list[0].copy()
@@ -110,7 +119,7 @@ class SyntheticMigrationTests(unittest.TestCase):
         common_start=max([tr.stats.starttime for tr in stack_list])
         common_end  =min([tr.stats.endtime for tr in stack_list])
         for tr in stack_list:
-            tr.slice(common_start, common_end)
+            tr.trim(common_start, common_end)
         # stack common parts of traces
         tr_common=np.vstack([tr.data for tr in stack_list])
         max_trace=np.max(tr_common, axis=0)
@@ -131,6 +140,173 @@ class SyntheticMigrationTests(unittest.TestCase):
         tdiff=(tr.stats.starttime + tmax)-(self.starttime + self.ot)
         self.assertEquals(tdiff,0)
  
+
+    #@unittest.skip('Bla')
+    def test_rt_migration_true(self):
+
+        max_length = 120
+        safety_margin = 20
+
+        #########################
+        # set up sta-times matrix
+        # each row contains ttimes for all points of interest for one station
+        #########################
+        x=np.array([self.x, self.x+3.0])
+        y=np.array([self.y, self.y+3.0])
+        z=np.array([self.z, self.z+1.0])
+        ttimes_list=[tgrid.value_at_points(x, y, z) \
+                for tgrid in self.time_grids]
+        ttimes_matrix=np.vstack(ttimes_list)
+        ttimes_matrix=np.round(ttimes_matrix / self.dt) * self.dt
+        (nsta,npts) = ttimes_matrix.shape
+
+        #########################
+        # set up real-time traces
+        #########################
+
+        # need a RtTrace per station 
+        obs_rt_list=[RtTrace() for sta in self.obs_list]
+
+        # register pre-processing of data here
+        for rtt in obs_rt_list:
+            rtt.registerRtProcess('scale', factor=1.0)
+
+        # need nsta streams for each point we test (nsta x npts)
+        # for shifted waveforms
+        point_rt_list=[[RtTrace(max_length=max_length) \
+                for ista in xrange(nsta)] for ip in xrange(npts)]
+
+        # register processing of point-streams here
+        for rtt in obs_rt_list:
+            # This is where we would scale for distance (given pre-calculated
+            # distances from each point to every station)
+            rtt.registerRtProcess('scale', factor=1.0)
+
+        # need npts streams to store the point-stacks
+        stack_list=[RtTrace(max_length=max_length) for ip in xrange(npts)]
+        
+        # register stack procesing here
+        for rtt in stack_list:
+            # This is where we would add or lower weights if we wanted to
+            rtt.registerRtProcess('scale', factor=1.0)
+
+        # need 4 output streams (max, x, y, z)
+        max_out = RtTrace()
+        x_out = RtTrace()
+        y_out = RtTrace()
+        z_out = RtTrace()
+
+        #########################
+        # acquire and pre-process data
+        #########################
+
+        ntr=len(self.obs_split[0])
+        #########################
+        # start loops
+        #########################
+        # loop over segments (simulate real-time data)
+        for itr in xrange(ntr):
+            # update all input streams
+            # loop over stations
+            for ista in xrange(nsta):
+                tr = self.obs_split[ista][itr]
+                pp_data = obs_rt_list[ista].append(tr, gap_overlap_check = True)
+                # loop over points
+                for ip in xrange(npts):
+                    # do time shift and append
+                    pp_data_tmp = pp_data.copy()
+                    pp_data_tmp.stats.starttime -= ttimes_matrix[ista,ip]
+                    point_rt_list[ip][ista].append(pp_data_tmp, gap_overlap_check = True)
+
+            # update of all input streams is done
+            # now do the migration
+
+            # loop over points once to get stacks
+            for ip in xrange(npts):
+                # get common start-time for this point
+                common_start=max([point_rt_list[ip][ista].stats.starttime \
+                        for ista in xrange(nsta)])
+                # get list of stations for which the end-time is compatible
+                # with the common_start time and the safety buffer
+                ista_ok=[]
+                for ista in xrange(nsta):
+                    if (point_rt_list[ip][ista].stats.endtime - common_start) > safety_margin :
+                        ista_ok.append(ista)
+                # get common end-time
+                common_end=min([ point_rt_list[ip][ista].stats.endtime for ista in ista_ok])
+                # stack
+                c_list=[]
+                for ista in ista_ok:
+                    tr=point_rt_list[ip][ista].copy()
+                    tr.trim(common_start, common_end)
+                    c_list.append(tr.data)
+                tr_common=np.vstack(c_list)
+                stack_data = np.sum(tr_common, axis=0)
+                # prepare trace for passing up
+                tr=Trace(data=stack_data)
+                tr.stats.station = 'STACK'
+                tr.stats.npts = len(stack_data)
+                tr.stats.delta = self.dt
+                tr.stats.starttime=common_start
+                # append to appropriate stack_list
+                stack_list[ip].append(tr, gap_overlap_check = False)
+
+            # now extract maximum etc from stacks
+            # get common start-time for this point
+            common_start=max([stack_list[ip].stats.starttime \
+                    for ip in xrange(npts)])
+            # get list of points for which the end-time is compatible
+            # with the common_start time and the safety buffer
+            ip_ok = []
+            for ip in xrange(npts):
+                if (stack_list[ip].stats.endtime - common_start) > safety_margin:
+                    ip_ok.append(ip)
+            common_end=min([stack_list[ip].stats.endtime for ip in ip_ok ])
+            # stack
+            c_list=[]
+            for ip in ip_ok:
+                tr=stack_list[ip].copy()
+                tr.trim(common_start, common_end)
+                c_list.append(tr.data)
+            tr_common=np.vstack(c_list)
+            # get maximum and the corresponding point
+            max_data = np.max(tr_common, axis=0)
+            argmax_data = np.argmax(tr_common, axis=0)
+            # prepare traces for passing up
+            # max
+            tr=Trace(data=stack_data)
+            tr.stats.station = 'MAX'
+            tr.stats.npts = len(max_data)
+            tr.stats.delta = self.dt
+            tr.stats.starttime=common_start
+            max_out.append(tr, gap_overlap_check = False)
+            # x coordinate
+            tr_x=tr.copy()
+            tr_x.stats.station = 'XMAX'
+            tr_x.data=x[argmax_data]
+            x_out.append(tr_x, gap_overlap_check = False)
+            # y coordinate
+            tr_y=tr.copy()
+            tr_y.stats.station = 'YMAX'
+            tr_y.data=y[argmax_data]
+            y_out.append(tr_y, gap_overlap_check = False)
+            # z coordinate
+            tr_z=tr.copy()
+            tr_z.stats.station = 'YMAX'
+            tr_z.data=z[argmax_data]
+            z_out.append(tr_z, gap_overlap_check = False)
+            max_out.plot()
+
+        #########################
+        # end loops
+        #########################
+
+        # check we find the same absolute origin time
+        max_trace=max_out.data
+        tmax=np.argmax(max_trace)*self.dt
+        tdiff=(tr.stats.starttime + tmax)-(self.starttime + self.ot)
+        self.assertEquals(tdiff,0)
+
 
 
 
