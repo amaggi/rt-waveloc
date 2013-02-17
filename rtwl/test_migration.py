@@ -250,6 +250,7 @@ class SyntheticMigrationTests(unittest.TestCase):
                 tr.stats.starttime=common_start
                 # append to appropriate stack_list
                 stack_list[ip].append(tr, gap_overlap_check = False)
+                stack_list[ip].plot()
 
             # now extract maximum etc from stacks
             # get common start-time for this point
