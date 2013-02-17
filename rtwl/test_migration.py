@@ -90,7 +90,7 @@ class SyntheticMigrationTests(unittest.TestCase):
             common_end  =min([tr.stats.endtime for tr in tr_list])
             # stack common parts of traces
             for tr in tr_list:
-                tr.trim(common_start, common_end)
+                tr.slice(common_start, common_end)
             tr_common=np.vstack([tr.data for tr in tr_list])
             diff=tr_common[0,:] - tr_common[5,:]
             stack_trace=np.sum(tr_common, axis=0)
@@ -110,7 +110,7 @@ class SyntheticMigrationTests(unittest.TestCase):
         common_start=max([tr.stats.starttime for tr in stack_list])
         common_end  =min([tr.stats.endtime for tr in stack_list])
         for tr in stack_list:
-            tr.trim(common_start, common_end)
+            tr.slice(common_start, common_end)
         # stack common parts of traces
         tr_common=np.vstack([tr.data for tr in stack_list])
         max_trace=np.max(tr_common, axis=0)
