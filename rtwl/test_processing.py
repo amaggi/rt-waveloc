@@ -167,7 +167,9 @@ class RtTests(unittest.TestCase):
         rt_single=RtTrace()
         rt_trace=RtTrace()
         rt_trace.registerRtProcess('dx2',win=win)
+        rt_trace.registerRtProcess('boxcar',width=50)
         rt_single.registerRtProcess('dx2',win=win)
+        rt_single.registerRtProcess('boxcar',width=50)
 
         for tr in self.traces:
             rt_trace.append(tr, gap_overlap_check = True)
@@ -189,6 +191,7 @@ class RtTests(unittest.TestCase):
         for rtt in [rt_trace, rt_trace_single]:
             rtt.registerRtProcess('scale',factor=fact)
             rtt.registerRtProcess('kurtosis',win=win)
+            rtt.registerRtProcess('boxcar',width=50)
             rtt.registerRtProcess('differentiate')
             rtt.registerRtProcess('neg_to_zero')
 
