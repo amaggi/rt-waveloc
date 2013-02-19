@@ -123,14 +123,14 @@ class RtTests(unittest.TestCase):
 
     def test_rt_mean(self):
 
-        C=0.9
+        win=0.5
 
         data_trace=self.data_trace.copy()
 
         rt_single=RtTrace()
         rt_trace=RtTrace()
-        rt_trace.registerRtProcess('mean',C1=C)
-        rt_single.registerRtProcess('mean',C1=C)
+        rt_trace.registerRtProcess('mean',win=win)
+        rt_single.registerRtProcess('mean',win=win)
 
         for tr in self.traces:
             rt_trace.append(tr, gap_overlap_check = True)
@@ -139,18 +139,18 @@ class RtTests(unittest.TestCase):
         newtr=self.data_trace.copy()
         newtr.data=newtr.data-rt_trace.data
         assert_array_almost_equal(rt_single, rt_trace)
-        self.assertAlmostEqual(np.mean(newtr.data),0.0,2)
+        self.assertAlmostEqual(np.mean(newtr.data),0.0,1)
 
     def test_rt_variance(self):
 
-        C=0.1
+        win=10
 
         data_trace=self.data_trace.copy()
 
         rt_single=RtTrace()
         rt_trace=RtTrace()
-        rt_trace.registerRtProcess('variance',C1=C)
-        rt_single.registerRtProcess('variance',C1=C)
+        rt_trace.registerRtProcess('variance',win=win)
+        rt_single.registerRtProcess('variance',win=win)
 
         for tr in self.traces:
             rt_trace.append(tr, gap_overlap_check = True)
@@ -160,14 +160,14 @@ class RtTests(unittest.TestCase):
 
     def test_rt_dx2(self):
 
-        C=0.1
+        win=10
 
         data_trace=self.data_trace.copy()
 
         rt_single=RtTrace()
         rt_trace=RtTrace()
-        rt_trace.registerRtProcess('dx2',C1=C)
-        rt_single.registerRtProcess('dx2',C1=C)
+        rt_trace.registerRtProcess('dx2',win=win)
+        rt_single.registerRtProcess('dx2',win=win)
 
         for tr in self.traces:
             rt_trace.append(tr, gap_overlap_check = True)

@@ -46,9 +46,9 @@ def neg_to_zero(trace, rtmemory_list=None):
     trace.data[trace.data < 0.0] = 0.0
     return trace.data
 
-def mean(trace, C1=0.1, rtmemory_list=None):
+def mean(trace, win=1.0, rtmemory_list=None):
     """
-    Calculate recursive mean. C is a scaling constant
+    Calculate recursive mean. win is a window length
     """
 
     if not isinstance(trace, Trace):
@@ -83,7 +83,8 @@ def mean(trace, C1=0.1, rtmemory_list=None):
 
     mu1_last = rtmemory_mu1.input[0]
 
-    a1 = 1-C1
+    a1 = np.exp(-1/float(win))
+    C1 = 1-a1
 
     # do recursive mean
     for i in xrange(npts):
@@ -95,9 +96,9 @@ def mean(trace, C1=0.1, rtmemory_list=None):
 
     return mu1
 
-def variance(trace, C1=0.1, rtmemory_list=None):
+def variance(trace, win=1.0, rtmemory_list=None):
     """
-    Calculate recursive variance. C is a scaling constant
+    Calculate recursive variance. Win is a window in seconds.
     """
 
     if not isinstance(trace, Trace):
@@ -141,7 +142,8 @@ def variance(trace, C1=0.1, rtmemory_list=None):
     mu1_last = rtmemory_mu1.input[0]
     mu2_last = rtmemory_mu2.input[0]
 
-    a1 = 1.0 - C1
+    a1 = np.exp(-1/float(win))
+    C1 = 1-a1
     C2 = (1.0 - a1*a1)/2.0
 
     # do recursive mean
@@ -159,7 +161,7 @@ def variance(trace, C1=0.1, rtmemory_list=None):
 
     return mu2
 
-def dx2(trace, C1=0.1, rtmemory_list=None):
+def dx2(trace, win=1.0, rtmemory_list=None):
     """
     Calculate recursive variance. C is a scaling constant
     """
@@ -205,7 +207,8 @@ def dx2(trace, C1=0.1, rtmemory_list=None):
     mu1_last = rtmemory_mu1.input[0]
     mu2_last = rtmemory_mu2.input[0]
 
-    a1 = 1.0 - C1
+    a1 = np.exp(-1/float(win))
+    C1 = 1.0-a1
     C2 = (1.0 - a1*a1)/2.0
 
     # do recursive mean
