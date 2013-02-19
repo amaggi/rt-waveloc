@@ -10,6 +10,9 @@ def suite():
     suite = unittest.TestSuite()
     suite.addTest(RtTests('test_rt_offset'))
     suite.addTest(RtTests('test_rt_scale'))
+    suite.addTest(RtTests('test_rt_mean'))
+    suite.addTest(RtTests('test_rt_variance'))
+    suite.addTest(RtTests('test_rt_dx2'))
     suite.addTest(RtTests('test_rt_kurtosis'))
     suite.addTest(RtTests('test_rt_neg_to_zero'))
     suite.addTest(RtTests('test_rt_kurt_grad'))
@@ -27,6 +30,9 @@ class RtTests(unittest.TestCase):
         rt_dict= obspy.realtime.rttrace.REALTIME_PROCESS_FUNCTIONS
 #        rt_dict['offset']=(am_rt_signal.offset,0)
 #        rt_dict['kurtosis']=(am_rt_signal.kurtosis,3)
+        rt_dict['mean']=(am_rt_signal.mean,1)
+        rt_dict['variance']=(am_rt_signal.variance,2)
+        rt_dict['dx2']=(am_rt_signal.dx2,2)
         rt_dict['neg_to_zero']=(am_rt_signal.neg_to_zero,0)
         rt_dict['convolve']=(am_rt_signal.convolve,1)
 
@@ -114,6 +120,61 @@ class RtTests(unittest.TestCase):
         min_val_test=np.min(rt_trace.data)
         self.assertEqual(max_val, max_val_test)
         self.assertEqual(0.0, min_val_test)
+
+    def test_rt_mean(self):
+
+        C=0.9
+
+        data_trace=self.data_trace.copy()
+
+        rt_single=RtTrace()
+        rt_trace=RtTrace()
+        rt_trace.registerRtProcess('mean',C1=C)
+        rt_single.registerRtProcess('mean',C1=C)
+
+        for tr in self.traces:
+            rt_trace.append(tr, gap_overlap_check = True)
+        rt_single.append(data_trace, gap_overlap_check = True)
+
+        newtr=self.data_trace.copy()
+        newtr.data=newtr.data-rt_trace.data
+        assert_array_almost_equal(rt_single, rt_trace)
+        self.assertAlmostEqual(np.mean(newtr.data),0.0,2)
+
+    def test_rt_variance(self):
+
+        C=0.1
+
+        data_trace=self.data_trace.copy()
+
+        rt_single=RtTrace()
+        rt_trace=RtTrace()
+        rt_trace.registerRtProcess('variance',C1=C)
+        rt_single.registerRtProcess('variance',C1=C)
+
+        for tr in self.traces:
+            rt_trace.append(tr, gap_overlap_check = True)
+        rt_single.append(data_trace, gap_overlap_check = True)
+
+        assert_array_almost_equal(rt_single, rt_trace)
+
+    def test_rt_dx2(self):
+
+        C=0.1
+
+        data_trace=self.data_trace.copy()
+
+        rt_single=RtTrace()
+        rt_trace=RtTrace()
+        rt_trace.registerRtProcess('dx2',C1=C)
+        rt_single.registerRtProcess('dx2',C1=C)
+
+        for tr in self.traces:
+            rt_trace.append(tr, gap_overlap_check = True)
+        rt_single.append(data_trace, gap_overlap_check = True)
+
+        assert_array_almost_equal(rt_single, rt_trace)
+
 
     def test_rt_kurt_grad(self):
         win=3.0 

@@ -46,6 +46,185 @@ def neg_to_zero(trace, rtmemory_list=None):
     trace.data[trace.data < 0.0] = 0.0
     return trace.data
 
+def mean(trace, C1=0.1, rtmemory_list=None):
+    """
+    Calculate recursive mean. C is a scaling constant
+    """
+
+    if not isinstance(trace, Trace):
+        msg = "Trace parameter must be an obspy.core.trace.Trace object."
+        raise ValueError(msg)
+    
+    # if this is the first appended trace, the rtmemory_list will be None
+    if not rtmemory_list:
+        rtmemory_list = [RtMemory()]
+
+    # deal with case of empty trace
+    sample = trace.data
+    if np.size(sample) < 1:
+        return sample
+
+    # get simple info from trace
+    npts=len(sample)
+
+    # prepare the output array
+    mu1 = np.empty(npts, sample.dtype)
+
+    # prepare the rt memory
+    rtmemory_mu1 = rtmemory_list[0]
+
+    if not rtmemory_mu1.initialized:
+        memory_size_input  = 1
+        memory_size_output = 0
+        rtmemory_mu1.initialize(sample.dtype, memory_size_input,\
+                                memory_size_output, 0, 0)
+
+    # initialize from memory
+
+    mu1_last = rtmemory_mu1.input[0]
+
+    a1 = 1-C1
+
+    # do recursive mean
+    for i in xrange(npts):
+        mu1[i] = a1*mu1_last + C1*sample[i]
+        mu1_last=mu1[i]
+
+    # save to memory
+    rtmemory_mu1.input[0] = mu1_last
+
+    return mu1
+
+def variance(trace, C1=0.1, rtmemory_list=None):
+    """
+    Calculate recursive variance. C is a scaling constant
+    """
+
+    if not isinstance(trace, Trace):
+        msg = "Trace parameter must be an obspy.core.trace.Trace object."
+        raise ValueError(msg)
+    
+    # if this is the first appended trace, the rtmemory_list will be None
+    if not rtmemory_list:
+        rtmemory_list = [RtMemory(), RtMemory()]
+
+    # deal with case of empty trace
+    # are going to need double precision here
+    sample = trace.data.astype('float64')
+    if np.size(sample) < 1:
+        return sample
+
+    # get simple info from trace
+    npts=len(sample)
+
+    # prepare the output array
+    mu2 = np.empty(npts, sample.dtype)
+
+    # prepare the rt memory
+    rtmemory_mu1 = rtmemory_list[0]
+    rtmemory_mu2 = rtmemory_list[1]
+
+    if not rtmemory_mu1.initialized:
+        memory_size_input  = 1
+        memory_size_output = 0
+        rtmemory_mu1.initialize(sample.dtype, memory_size_input,\
+                                memory_size_output, 0, 0)
+
+    if not rtmemory_mu2.initialized:
+        memory_size_input  = 1
+        memory_size_output = 0
+        rtmemory_mu2.initialize(sample.dtype, memory_size_input,\
+                                memory_size_output, sample[0]*sample[0], 0)
+    # initialize from memory
+
+
+    mu1_last = rtmemory_mu1.input[0]
+    mu2_last = rtmemory_mu2.input[0]
+
+    a1 = 1.0 - C1
+    C2 = (1.0 - a1*a1)/2.0
+
+    # do recursive mean
+    for i in xrange(npts):
+        mu1 = a1*mu1_last + C1*sample[i]
+        mu1_last=mu1
+        dx2 = (sample[i]-mu1_last)*(sample[i]-mu1_last)
+        mu2[i] = a1*mu2_last + C2*dx2
+        mu2_last=mu2[i]
+
+    # save to memory
+    rtmemory_mu1.input[0] = mu1_last
+    rtmemory_mu2.input[0] = mu2_last
+
+
+    return mu2
+
+def dx2(trace, C1=0.1, rtmemory_list=None):
+    """
+    Calculate recursive variance. C is a scaling constant
+    """
+
+    if not isinstance(trace, Trace):
+        msg = "Trace parameter must be an obspy.core.trace.Trace object."
+        raise ValueError(msg)
+    
+    # if this is the first appended trace, the rtmemory_list will be None
+    if not rtmemory_list:
+        rtmemory_list = [RtMemory(), RtMemory()]
+
+    # deal with case of empty trace
+    # are going to need double precision here
+    sample = trace.data.astype('float64')
+    if np.size(sample) < 1:
+        return sample
+
+    # get simple info from trace
+    npts=len(sample)
+
+    # prepare the output array
+    dx2 = np.empty(npts, sample.dtype)
+
+    # prepare the rt memory
+    rtmemory_mu1 = rtmemory_list[0]
+    rtmemory_mu2 = rtmemory_list[1]
+
+    if not rtmemory_mu1.initialized:
+        memory_size_input  = 1
+        memory_size_output = 0
+        rtmemory_mu1.initialize(sample.dtype, memory_size_input,\
+                                memory_size_output, 0, 0)
+
+    if not rtmemory_mu2.initialized:
+        memory_size_input  = 1
+        memory_size_output = 0
+        rtmemory_mu2.initialize(sample.dtype, memory_size_input,\
+                                memory_size_output, sample[0]*sample[0], 0)
+    # initialize from memory
+
+
+    mu1_last = rtmemory_mu1.input[0]
+    mu2_last = rtmemory_mu2.input[0]
+
+    a1 = 1.0 - C1
+    C2 = (1.0 - a1*a1)/2.0
+
+    # do recursive mean
+    for i in xrange(npts):
+        mu1 = a1*mu1_last + C1*sample[i]
+        mu1_last=mu1
+        dx2[i] = (sample[i]-mu1_last)*(sample[i]-mu1_last)
+        mu2 = a1*mu2_last + C2*dx2[i]
+        dx2[i] = dx2[i] / mu2_last
+        mu2_last=mu2
+
+    # save to memory
+    rtmemory_mu1.input[0] = mu1_last
+    rtmemory_mu2.input[0] = mu2_last
+
+
+    return dx2
+
+
 
 # submitted to obspy.realtime
 ## do not modify
