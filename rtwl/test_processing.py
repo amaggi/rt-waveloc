@@ -123,7 +123,7 @@ class RtTests(unittest.TestCase):
 
     def test_rt_mean(self):
 
-        win=0.5
+        win=0.05
 
         data_trace=self.data_trace.copy()
 
@@ -139,7 +139,7 @@ class RtTests(unittest.TestCase):
         newtr=self.data_trace.copy()
         newtr.data=newtr.data-rt_trace.data
         assert_array_almost_equal(rt_single, rt_trace)
-        self.assertAlmostEqual(np.mean(newtr.data),0.0,1)
+        self.assertAlmostEqual(np.mean(newtr.data),0.0,0)
 
     def test_rt_variance(self):
 

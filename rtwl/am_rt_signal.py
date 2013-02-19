@@ -118,7 +118,7 @@ def variance(trace, win=1.0, rtmemory_list=None):
 
     # get simple info from trace
     npts=len(sample)
-    dt=trace.data.delta
+    dt=trace.stats.delta
 
     # prepare the output array
     mu2 = np.empty(npts, sample.dtype)
@@ -184,7 +184,7 @@ def dx2(trace, win=1.0, rtmemory_list=None):
 
     # get simple info from trace
     npts=len(sample)
-    dt=trace.data.delta
+    dt=trace.stats.delta
 
     # prepare the output array
     dx2 = np.empty(npts, sample.dtype)
