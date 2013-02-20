@@ -11,9 +11,13 @@ def suite():
     suite.addTest(RtTests('test_rt_offset'))
     suite.addTest(RtTests('test_rt_scale'))
     suite.addTest(RtTests('test_rt_mean'))
+    suite.addTest(RtTests('test_rt_mean_dec'))
     suite.addTest(RtTests('test_rt_variance'))
+    suite.addTest(RtTests('test_rt_variance_dec'))
     suite.addTest(RtTests('test_rt_dx2'))
     suite.addTest(RtTests('test_rt_kurtosis'))
+    suite.addTest(RtTests('test_sw_kurtosis'))
+    suite.addTest(RtTests('test_rt_kurtosis_dec'))
     suite.addTest(RtTests('test_rt_neg_to_zero'))
     suite.addTest(RtTests('test_rt_kurt_grad'))
     suite.addTest(RtTests('test_rt_gaussian_filter'))
@@ -35,6 +39,7 @@ class RtTests(unittest.TestCase):
         rt_dict['dx2']=(am_rt_signal.dx2,2)
         rt_dict['neg_to_zero']=(am_rt_signal.neg_to_zero,0)
         rt_dict['convolve']=(am_rt_signal.convolve,1)
+        rt_dict['sw_kurtosis']=(am_rt_signal.sw_kurtosis,1)
 
         # set up traces
         self.data_trace = read('test_data/YA.UV15.00.HHZ.MSEED')[0]
@@ -43,6 +48,9 @@ class RtTests(unittest.TestCase):
         x=self.data_trace.data.astype(np.float32)
         self.data_trace.data=x
         self.traces = self.data_trace / 3
+
+        self.data_trace_filt=self.data_trace.copy()
+        self.data_trace_filt.filter('lowpass', freq=1.0)
 
     def test_rt_offset(self):
 
@@ -105,6 +113,26 @@ class RtTests(unittest.TestCase):
         diff.data=rt_trace.data-ktrace.data
         self.assertAlmostEquals(np.mean(np.abs(diff)),0.0)
 
+    def test_sw_kurtosis(self):
+        win=3.0
+
+        data_trace = self.data_trace.copy()
+
+        rt_trace=RtTrace()
+        rt_single=RtTrace()
+
+        rt_trace.registerRtProcess('sw_kurtosis',win=win)
+        rt_single.registerRtProcess('sw_kurtosis',win=win)
+
+        for tr in self.traces:
+            rt_trace.append(tr, gap_overlap_check = True)
+        rt_single.append(data_trace)
+   
+        diff=self.data_trace.copy()
+        diff.data=rt_trace.data-rt_single.data
+        self.assertAlmostEquals(np.mean(np.abs(diff)),0.0)
+
+
     def test_rt_neg_to_zero(self):
 
         data_trace=self.data_trace.copy()
@@ -141,7 +169,85 @@ class RtTests(unittest.TestCase):
         assert_array_almost_equal(rt_single, rt_trace)
         self.assertAlmostEqual(np.mean(newtr.data),0.0,0)
 
+    def test_rt_mean_dec(self):
+
+        win=5.0
+
+        data_trace=self.data_trace_filt.copy()
+        data_trace_dec=self.data_trace_filt.copy()
+        # no need to filter as we're using a pre-filtered trace
+        data_trace_dec.decimate(5,no_filter=True)
+
+
+        rt_trace=RtTrace()
+        rt_dec=RtTrace()
+        rt_trace.registerRtProcess('mean',win=win)
+        rt_dec.registerRtProcess('mean',win=win)
+
+        rt_trace.append(data_trace, gap_overlap_check = True)
+        rt_dec.append(data_trace_dec, gap_overlap_check = True)
+
+        newtr=rt_trace.copy()
+        newtr.decimate(5, no_filter=True)
+
+        #assert_array_almost_equal(rt_dec.data, newtr.data, 0)
+        diff=(np.max(rt_dec.data)-np.max(newtr.data)) / np.max(rt_dec.data)
+        self.assertAlmostEquals(np.abs(diff) , 0.0, 2)
+
+    def test_rt_variance_dec(self):
+
+        win=5.0
+
+        data_trace=self.data_trace_filt.copy()
+        data_trace_dec=self.data_trace_filt.copy()
+        # no need to filter as we're using a pre-filtered trace
+        data_trace_dec.decimate(5,no_filter=True)
+
+
+        rt_trace=RtTrace()
+        rt_dec=RtTrace()
+        rt_trace.registerRtProcess('variance',win=win)
+        rt_dec.registerRtProcess('variance',win=win)
+
+        rt_trace.append(data_trace, gap_overlap_check = True)
+        rt_dec.append(data_trace_dec, gap_overlap_check = True)
+
+        newtr=rt_trace.copy()
+        newtr.decimate(5, no_filter=True)
+
+        #assert_array_almost_equal(rt_dec.data, newtr.data, 0)
+        diff=(np.max(rt_dec.data)-np.max(newtr.data)) / np.max(rt_dec.data)
+        self.assertAlmostEquals(np.abs(diff) , 0.0, 1)
+
+
+    @unittest.expectedFailure
+    def test_rt_kurtosis_dec(self):
+
+        win=5.0
+
+        data_trace=self.data_trace_filt.copy()
+        data_trace_dec=self.data_trace_filt.copy()
+        # no need to filter as we're using a pre-filtered trace
+        data_trace_dec.decimate(5,no_filter=True)
+
+
+        rt_trace=RtTrace()
+        rt_dec=RtTrace()
+        rt_trace.registerRtProcess('kurtosis',win=win)
+        rt_dec.registerRtProcess('kurtosis',win=win)
+
+        rt_trace.append(data_trace, gap_overlap_check = True)
+        rt_dec.append(data_trace_dec, gap_overlap_check = True)
+
+        newtr=rt_trace.copy()
+        newtr.decimate(5, no_filter=True)
+
+        #assert_array_almost_equal(rt_dec.data, newtr.data, 0)
+        diff=(np.max(rt_dec.data)-np.max(newtr.data)) / np.max(rt_dec.data)
+        self.assertAlmostEquals(np.abs(diff) , 0.0, 2)
+
     def test_rt_variance(self):
+
 
         win=10
 
