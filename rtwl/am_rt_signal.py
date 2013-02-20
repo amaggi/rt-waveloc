@@ -1,5 +1,7 @@
 import sys
 import numpy as np
+import scipy.stats as ss
+from itertools import islice
 from obspy.core.trace import Trace, UTCDateTime
 from obspy.realtime.rtmemory import RtMemory
 
@@ -299,4 +301,81 @@ def convolve(trace, conv_signal=None, rtmemory_list=None):
 
     return x_new[i_start:i_end]
 
+def _window(seq, n=2):
+    "Returns a sliding window (of width n) over data from the iterable"
+    "   s -> (s0,s1,...s[n-1]), (s1,s2,...,sn), ...                   "
+    it = iter(seq)
+    result = tuple(islice(it, n))
+    if len(result) == n:
+        yield result    
+    for elem in it:
+        result = result[1:] + (elem,)
+        yield result
+
+
+def sw_kurtosis(trace, win=3.0, rtmemory_list=None):
+    """
+    Compute kurtosis using a sliding window method. Calls scipy.stats.kurtosis
+
+    :type trace: :class:`~obspy.core.trace.Trace`
+    :param trace: :class:`~obspy.core.trace.Trace` object to append to this RtTrace
+    :type win: float
+    :param win: sliding window length in seconds
+    :type rtmemory_list: list of :class:`~obspy.realtime.rtmemory.RtMemory`, optional
+    :param rtmemory_list: Persistent memory used by this process for specified trace
+    :rtype: Numpy :class:`numpy.ndarray`
+    :return: Processed trace data from appended Trace object
+    """
+
+    if not isinstance(trace, Trace):
+        msg = "Trace parameter must be an obspy.core.trace.Trace object."
+        raise ValueError(msg)
+
+    if not rtmemory_list:
+        rtmemory_list=[RtMemory()]
+
+    # deal with case of empty trace
+    sample = trace.data
+    if np.size(sample) < 1:
+        return sample
+
+    # get info from trace
+    dt=trace.stats.delta
+    npts=int(np.round(win/float(dt)))
+
+    # set up temporary array for kurtosis and output array
+    k_array=np.empty((len(sample),npts),dtype=sample.dtype)
+    x_out=np.empty(len(sample))
+
+    rtmemory=rtmemory_list[0]
+    mem_size=npts-1
+    if not rtmemory.initialized:
+        sample_start=sample[0:mem_size]
+        first_trace=True
+        memory_size_input  = mem_size
+        memory_size_output = 0
+        rtmemory.initialize(sample.dtype, memory_size_input,\
+                                memory_size_output, sample_start[::-1], 0)
+
+
+    # make an array of the right dimension
+    x=np.empty(len(sample)+mem_size, dtype=sample.dtype)
+    # fill it up partly with the memory, partly with the new data
+    x[0:mem_size]=rtmemory.input[:]
+    x[mem_size:]=sample[:]
+
+    # do the sliding window kurtosis
+    windows=_window(x,npts)
+    i=0
+    for w in windows:
+        k_array[i,0:npts]=w
+        i=i+1
+    xout = ss.kurtosis(k_array,axis=1)
+
+    
+    # put new data into memory for next trace
+    
+    rtmemory.updateInput(sample)
+
+    return xout
 
