@@ -142,6 +142,7 @@ class SyntheticMigrationTests(unittest.TestCase):
  
 
     #@unittest.skip('Bla')
+    #@unittest.expectedFailure
     def test_rt_migration_true(self):
 
         max_length = 120
@@ -231,7 +232,6 @@ class SyntheticMigrationTests(unittest.TestCase):
                 common_start=max([point_rt_list[ip][ista].stats.starttime \
                         for ista in xrange(nsta)])
                 common_start=max(common_start,last_common_end_stack[ip])
-                print 'stack %d common start %s'%(ip,common_start.isoformat())
                 # get list of stations for which the end-time is compatible
                 # with the common_start time and the safety buffer
                 ista_ok=[]
@@ -241,7 +241,6 @@ class SyntheticMigrationTests(unittest.TestCase):
                 # get common end-time
                 common_end=min([ point_rt_list[ip][ista].stats.endtime for ista in ista_ok])
                 last_common_end_stack[ip]=common_end+self.dt
-                print 'stack %d common end %s'%(ip,common_end.isoformat())
                 # stack
                 c_list=[]
                 for ista in ista_ok:
@@ -265,7 +264,6 @@ class SyntheticMigrationTests(unittest.TestCase):
             common_start=max([stack_list[ip].stats.starttime \
                     for ip in xrange(npts)])
             common_start=max(common_start,last_common_end_max)
-            print 'max common start %s'%(common_start.isoformat())
             # get list of points for which the end-time is compatible
             # with the common_start time and the safety buffer
             ip_ok = []
@@ -274,7 +272,6 @@ class SyntheticMigrationTests(unittest.TestCase):
                     ip_ok.append(ip)
             common_end=min([stack_list[ip].stats.endtime for ip in ip_ok ])
             last_common_end_max=common_end+self.dt
-            print 'max common end %s'%(common_end.isoformat())
             # stack
             c_list=[]
             for ip in ip_ok:
@@ -287,40 +284,38 @@ class SyntheticMigrationTests(unittest.TestCase):
             argmax_data = np.argmax(tr_common, axis=0)
             # prepare traces for passing up
             # max
-            tr=Trace(data=stack_data)
-            tr.stats.station = 'MAX'
-            tr.stats.npts = len(max_data)
-            tr.stats.delta = self.dt
-            tr.stats.starttime=common_start
-            import pdb; pdb.set_trace()
-            max_out.append(tr, gap_overlap_check = True)
+            tr_max=Trace(data=max_data)
+            tr_max.stats.station = 'MAX'
+            tr_max.stats.npts = len(max_data)
+            tr_max.stats.delta = self.dt
+            tr_max.stats.starttime=common_start
+            max_out.append(tr_max, gap_overlap_check = True)
             # x coordinate
-            tr_x=tr.copy()
+            tr_x=tr_max.copy()
             tr_x.stats.station = 'XMAX'
             tr_x.data=x[argmax_data]
             x_out.append(tr_x, gap_overlap_check = True)
             # y coordinate
-            tr_y=tr.copy()
+            tr_y=tr_max.copy()
             tr_y.stats.station = 'YMAX'
             tr_y.data=y[argmax_data]
             y_out.append(tr_y, gap_overlap_check = True)
             # z coordinate
-            tr_z=tr.copy()
-            tr_z.stats.station = 'YMAX'
+            tr_z=tr_max.copy()
+            tr_z.stats.station = 'ZMAX'
             tr_z.data=z[argmax_data]
             z_out.append(tr_z, gap_overlap_check = True)
-            #max_out.plot()
 
         #########################
         # end loops
         #########################
 
         # check we find the same absolute origin time
+        #max_out.plot()
         max_trace=max_out.data
         tmax=np.argmax(max_trace)*self.dt
-        tdiff=(tr.stats.starttime + tmax)-(self.starttime + self.ot)
+        tdiff=(max_out.stats.starttime + tmax)-(self.starttime + self.ot)
         self.assertEquals(tdiff,0)
-
 
 
 
@@ -328,8 +323,8 @@ class SyntheticMigrationTests(unittest.TestCase):
 
 if __name__ == '__main__':
 
-  import logging
-  logging.basicConfig(level=logging.INFO, format='%(levelname)s : %(asctime)s : %(message)s')
+#  import logging
+#  logging.basicConfig(level=logging.INFO, format='%(levelname)s : %(asctime)s : %(message)s')
  
   unittest.TextTestRunner(verbosity=2).run(suite())
  
