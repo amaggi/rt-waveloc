@@ -112,49 +112,50 @@ class RtMigrator(object):
             self.dt=tr.stats.delta
             sta=tr.stats.station
             ista=self.sta_list.index(sta)
-            pp_data = self.obs_rt_list[ista].append(tr, gap_overlap_check = True)
+            pp_data = self.obs_rt_list[ista].append(tr, gap_overlap_check = False)
             # loop over points
             for ip in xrange(self.npts):
                 # do time shift and append
                 pp_data_tmp = pp_data.copy()
                 pp_data_tmp.stats.starttime -= np.round(self.ttimes_matrix[ista,ip]/self.dt) * self.dt
-                self.point_rt_list[ip][ista].append(pp_data_tmp, gap_overlap_check = True)
+                self.point_rt_list[ip][ista].append(pp_data_tmp, gap_overlap_check = False)
 
     def updateStacks(self):
 
         npts=self.npts
-        nsta=self.nsta
-
+        
         for ip in xrange(npts):
-            # get common start-time for this point
-            common_start=max([self.point_rt_list[ip][ista].stats.starttime \
-                     for ista in xrange(nsta)])
-            common_start=max(common_start,self.last_common_end_stack[ip])
-            # get list of stations for which the end-time is compatible
-            # with the common_start time and the safety buffer
-            ista_ok=[]
-            for ista in xrange(nsta):
-                if (self.point_rt_list[ip][ista].stats.endtime - common_start) > self.safety_margin :
-                        ista_ok.append(ista)
-            # get common end-time
-            common_end=min([ self.point_rt_list[ip][ista].stats.endtime for ista in ista_ok])
-            self.last_common_end_stack[ip]=common_end+self.dt
-            # stack
-            c_list=[]
-            for ista in ista_ok:
-                tr=self.point_rt_list[ip][ista].copy()
-                tr.trim(common_start, common_end)
-                c_list.append(tr.data)
-            tr_common=np.vstack(c_list)
-            stack_data = np.sum(tr_common, axis=0)
-            # prepare trace for passing up
-            tr=Trace(data=stack_data)
-            tr.stats.station = 'STACK'
-            tr.stats.npts = len(stack_data)
-            tr.stats.delta = self.dt
-            tr.stats.starttime=common_start
-            # append to appropriate stack_list
-            self.stack_list[ip].append(tr, gap_overlap_check = True)
+            self._updateStack(ip)
+
+    def _updateStack(self,ip):
+        nsta=self.nsta
+        # get common start-time for this point
+        common_start=max([self.point_rt_list[ip][ista].stats.starttime \
+                 for ista in xrange(nsta)])
+        common_start=max(common_start,self.last_common_end_stack[ip])
+        # get list of stations for which the end-time is compatible
+        # with the common_start time and the safety buffer
+        ista_ok=[]
+        for ista in xrange(nsta):
+            if (self.point_rt_list[ip][ista].stats.endtime - common_start) > self.safety_margin :
+                   ista_ok.append(ista)
+        # get common end-time
+        common_end=min([ self.point_rt_list[ip][ista].stats.endtime for ista in ista_ok])
+        self.last_common_end_stack[ip]=common_end+self.dt
+        # stack
+        c_list=[]
+        for ista in ista_ok:
+            tr=self.point_rt_list[ip][ista].copy()
+            tr.trim(common_start, common_end)
+            c_list.append(np.array(tr.data[:]))
+        tr_common=np.vstack(c_list)
+        # prepare trace for passing up
+        stack_data = np.sum(tr_common, axis=0)
+        stats={'station':'STACK', 'npts':len(stack_data), 'delta':self.dt, \
+                'starttime':common_start}
+        tr=Trace(data=stack_data,header=stats)
+        # append to appropriate stack_list
+        self.stack_list[ip].append(tr, gap_overlap_check = False)
 
     def updateMax(self):
 
@@ -186,27 +187,22 @@ class RtMigrator(object):
         argmax_data = np.argmax(tr_common, axis=0)
         # prepare traces for passing up
         # max
-        tr_max=Trace(data=max_data)
-        tr_max.stats.station = 'MAX'
-        tr_max.stats.npts = len(max_data)
-        tr_max.stats.delta = self.dt
-        tr_max.stats.starttime=common_start
-        self.max_out.append(tr_max, gap_overlap_check = True)
+        stats={'station':'MAX', 'npts':len(max_data), 'delta':self.dt, \
+                'starttime':common_start}
+        tr_max=Trace(data=max_data,header=stats)
+        self.max_out.append(tr_max, gap_overlap_check = False)
         # x coordinate
-        tr_x=tr_max.copy()
-        tr_x.stats.station = 'XMAX'
-        tr_x.data=self.x[argmax_data]
-        self.x_out.append(tr_x, gap_overlap_check = True)
+        stats['station'] = 'XMAX'
+        tr_x=Trace(data=self.x[argmax_data],header=stats)
+        self.x_out.append(tr_x, gap_overlap_check = False)
         # y coordinate
-        tr_y=tr_max.copy()
-        tr_y.stats.station = 'YMAX'
-        tr_y.data=self.y[argmax_data]
-        self.y_out.append(tr_y, gap_overlap_check = True)
+        stats['station'] = 'YMAX'
+        tr_y=Trace(data=self.y[argmax_data],header=stats)
+        self.y_out.append(tr_y, gap_overlap_check = False)
         # z coordinate
-        tr_z=tr_max.copy()
-        tr_z.stats.station = 'ZMAX'
-        tr_z.data=self.z[argmax_data]
-        self.z_out.append(tr_z, gap_overlap_check = True)
+        stats['station'] = 'ZMAX'
+        tr_z=Trace(data=self.z[argmax_data],header=stats)
+        self.z_out.append(tr_z, gap_overlap_check = False)
 
 
 

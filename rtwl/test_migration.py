@@ -47,7 +47,7 @@ class SyntheticMigrationTests(unittest.TestCase):
         self.z = 0.5 * tgrid.grid_info['nz'] * tgrid.grid_info['dz'] \
                 + tgrid.grid_info['z_orig']
 
-        n_test=400
+        n_test=100
         x_test=(np.random.randn(n_test)*2.0 - 1.0)*4.0
         y_test=(np.random.randn(n_test)*2.0 - 1.0)*3.0
         z_test=(np.random.randn(n_test)*2.0 - 1.0)*2.0
@@ -211,7 +211,7 @@ class SyntheticMigrationTests(unittest.TestCase):
         #########################
 
         # check we find the same absolute origin time
-        #max_out.plot()
+        #migrator.max_out.plot()
         max_trace=migrator.max_out.data
         tmax=np.argmax(max_trace)*self.dt
         tdiff=(migrator.max_out.stats.starttime + tmax)-(self.starttime + self.ot)
