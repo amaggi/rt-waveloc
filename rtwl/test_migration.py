@@ -24,6 +24,7 @@ class SyntheticMigrationTests(unittest.TestCase):
         self.wo = RtWavelocOptions()
         self.wo.opdict['outdir'] = 'Test'
         self.wo.opdict['time_grid'] = 'Slow_len.100m.P'
+        self.wo.opdict['max_length'] = 120
 
         self.wo.verifyDirectories()
 
@@ -167,7 +168,7 @@ class SyntheticMigrationTests(unittest.TestCase):
     #@unittest.expectedFailure
     def test_rt_migration_true(self):
 
-        max_length = 120
+ #       max_length = 120
         safety_margin = 20
 
         #########################
@@ -175,69 +176,29 @@ class SyntheticMigrationTests(unittest.TestCase):
         # each row contains ttimes for all points of interest for one station
         #########################
 
+        migrator = RtMigrator(self.wo)
 
-        # get the names of the ttimes files
-        ttimes_fnames=glob.glob(self.wo.ttimes_glob)
-        migrator = RtMigrator(ttimes_fnames)
         ttimes_matrix = migrator.ttimes_matrix
         nsta = migrator.nsta
         npts = migrator.npts
-        # get basic lengths
-        #f=h5py.File(ttimes_fnames[0],'r')
-        # copy the x, y, z data over
-        #x = np.array(f['x'][:])
-        #y = np.array(f['y'][:])
-        #z = np.array(f['z'][:])
-        #f.close()
-        # read the files
-        #ttimes_list = []
-        #for fname in ttimes_fnames:
-        #    f=h5py.File(fname,'r')
-        #    ttimes_list.append(np.array(f['ttimes']))
-        #    f.close()
-        #ttimes_matrix=np.vstack(ttimes_list)
-        #ttimes_matrix=np.round(ttimes_matrix / self.dt) * self.dt
-        #(nsta,npts) = ttimes_matrix.shape
 
         #########################
         # set up real-time traces
         #########################
 
         # need a RtTrace per station 
-        obs_rt_list=[RtTrace() for sta in self.obs_list]
+        obs_rt_list = migrator.obs_rt_list
+        point_rt_list = migrator.point_rt_list
+        stack_list = migrator.stack_list
 
-        # register pre-processing of data here
-        for rtt in obs_rt_list:
-            rtt.registerRtProcess('scale', factor=1.0)
-
-        # need nsta streams for each point we test (nsta x npts)
-        # for shifted waveforms
-        point_rt_list=[[RtTrace(max_length=max_length) \
-                for ista in xrange(nsta)] for ip in xrange(npts)]
-
-        # register processing of point-streams here
-        for rtt in obs_rt_list:
-            # This is where we would scale for distance (given pre-calculated
-            # distances from each point to every station)
-            rtt.registerRtProcess('scale', factor=1.0)
-
-        # need npts streams to store the point-stacks
-        stack_list=[RtTrace(max_length=max_length) for ip in xrange(npts)]
-        
-        # register stack procesing here
-        for rtt in stack_list:
-            # This is where we would add or lower weights if we wanted to
-            rtt.registerRtProcess('scale', factor=1.0)
-
-        # need 4 output streams (max, x, y, z)
-        max_out = RtTrace()
-        x_out = RtTrace()
-        y_out = RtTrace()
-        z_out = RtTrace()
+        max_out = migrator.max_out
+        x_out = migrator.x_out
+        y_out = migrator.y_out
+        z_out = migrator.z_out
 
         # need a list of common start-times
-        last_common_end_stack = [UTCDateTime(1970,1,1) for i in xrange(npts)]
-        last_common_end_max = UTCDateTime(1970,1,1) 
+        last_common_end_stack = migrator.last_common_end_stack
+        last_common_end_max = migrator.last_common_end_max
 
         #########################
         # acquire and pre-process data
