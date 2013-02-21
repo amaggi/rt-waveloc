@@ -48,7 +48,7 @@ class SyntheticMigrationTests(unittest.TestCase):
         t = np.arange(10000) * self.dt
         #self.ot = np.random.rand(3)*70
         self.ot = 50
-        self.starttime=UTCDateTime(2013,03,01)
+        self.starttime=UTCDateTime(2013,02,15)
         g_width=0.2
 
         # create observations
@@ -231,6 +231,7 @@ class SyntheticMigrationTests(unittest.TestCase):
                 common_start=max([point_rt_list[ip][ista].stats.starttime \
                         for ista in xrange(nsta)])
                 common_start=max(common_start,last_common_end_stack[ip])
+                print 'stack %d common start %s'%(ip,common_start.isoformat())
                 # get list of stations for which the end-time is compatible
                 # with the common_start time and the safety buffer
                 ista_ok=[]
@@ -240,6 +241,7 @@ class SyntheticMigrationTests(unittest.TestCase):
                 # get common end-time
                 common_end=min([ point_rt_list[ip][ista].stats.endtime for ista in ista_ok])
                 last_common_end_stack[ip]=common_end+self.dt
+                print 'stack %d common end %s'%(ip,common_end.isoformat())
                 # stack
                 c_list=[]
                 for ista in ista_ok:
@@ -256,13 +258,14 @@ class SyntheticMigrationTests(unittest.TestCase):
                 tr.stats.starttime=common_start
                 # append to appropriate stack_list
                 stack_list[ip].append(tr, gap_overlap_check = True)
-                stack_list[ip].plot()
+                #stack_list[ip].plot()
 
             # now extract maximum etc from stacks
             # get common start-time for this point
             common_start=max([stack_list[ip].stats.starttime \
                     for ip in xrange(npts)])
             common_start=max(common_start,last_common_end_max)
+            print 'max common start %s'%(common_start.isoformat())
             # get list of points for which the end-time is compatible
             # with the common_start time and the safety buffer
             ip_ok = []
@@ -271,6 +274,7 @@ class SyntheticMigrationTests(unittest.TestCase):
                     ip_ok.append(ip)
             common_end=min([stack_list[ip].stats.endtime for ip in ip_ok ])
             last_common_end_max=common_end+self.dt
+            print 'max common end %s'%(common_end.isoformat())
             # stack
             c_list=[]
             for ip in ip_ok:
@@ -288,6 +292,7 @@ class SyntheticMigrationTests(unittest.TestCase):
             tr.stats.npts = len(max_data)
             tr.stats.delta = self.dt
             tr.stats.starttime=common_start
+            import pdb; pdb.set_trace()
             max_out.append(tr, gap_overlap_check = True)
             # x coordinate
             tr_x=tr.copy()
@@ -304,7 +309,7 @@ class SyntheticMigrationTests(unittest.TestCase):
             tr_z.stats.station = 'YMAX'
             tr_z.data=z[argmax_data]
             z_out.append(tr_z, gap_overlap_check = True)
-            max_out.plot()
+            #max_out.plot()
 
         #########################
         # end loops
