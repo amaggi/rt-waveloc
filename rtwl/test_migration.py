@@ -47,9 +47,19 @@ class SyntheticMigrationTests(unittest.TestCase):
         self.z = 0.5 * tgrid.grid_info['nz'] * tgrid.grid_info['dz'] \
                 + tgrid.grid_info['z_orig']
 
-        x=np.array([self.x, self.x+3.0])
-        y=np.array([self.y, self.y+3.0])
-        z=np.array([self.z, self.z+1.0])
+        n_test=400
+        x_test=(np.random.randn(n_test)*2.0 - 1.0)*4.0
+        y_test=(np.random.randn(n_test)*2.0 - 1.0)*3.0
+        z_test=(np.random.randn(n_test)*2.0 - 1.0)*2.0
+        x=np.empty(n_test+1)
+        y=np.empty(n_test+1)
+        z=np.empty(n_test+1)
+        x[0]=self.x
+        y[0]=self.y
+        z[0]=self.z
+        x[1:n_test+1]=x_test
+        y[1:n_test+1]=y_test
+        z[1:n_test+1]=z_test
 
         for i in xrange(len(time_grid_names)):
             outname,ext=os.path.splitext(tt_names[i])
@@ -86,6 +96,7 @@ class SyntheticMigrationTests(unittest.TestCase):
             self.obs_split.append(obs_split)
 
 
+    @unittest.skip('Profiling')
     def test_migration_true(self):
 
         # set up the ttimes matrix
@@ -169,14 +180,6 @@ class SyntheticMigrationTests(unittest.TestCase):
     #@unittest.expectedFailure
     def test_rt_migration_true(self):
 
- #       max_length = 120
-        safety_margin = 20
-
-        #########################
-        # set up sta-times matrix
-        # each row contains ttimes for all points of interest for one station
-        #########################
-
         migrator = RtMigrator(self.wo)
         nsta = migrator.nsta
 
@@ -194,7 +197,6 @@ class SyntheticMigrationTests(unittest.TestCase):
                 tr = self.obs_split[ista][itr]
                 data_list.append(tr)
 
-
             # update data
             migrator.updateData(data_list)
 
@@ -203,7 +205,6 @@ class SyntheticMigrationTests(unittest.TestCase):
             
             # update max
             migrator.updateMax()
-
 
         #########################
         # end loops
