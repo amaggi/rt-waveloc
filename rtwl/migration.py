@@ -135,10 +135,7 @@ class RtMigrator(object):
         common_start=max(common_start,self.last_common_end_stack[ip])
         # get list of stations for which the end-time is compatible
         # with the common_start time and the safety buffer
-        ista_ok=[]
-        for ista in xrange(nsta):
-            if (self.point_rt_list[ip][ista].stats.endtime - common_start) > self.safety_margin :
-                   ista_ok.append(ista)
+        ista_ok=[ista for ista in xrange(nsta) if (self.point_rt_list[ip][ista].stats.endtime - common_start) > self.safety_margin]
         # get common end-time
         common_end=min([ self.point_rt_list[ip][ista].stats.endtime for ista in ista_ok])
         self.last_common_end_stack[ip]=common_end+self.dt
@@ -169,10 +166,7 @@ class RtMigrator(object):
         common_start=max(common_start,self.last_common_end_max)
         # get list of points for which the end-time is compatible
         # with the common_start time and the safety buffer
-        ip_ok = []
-        for ip in xrange(npts):
-            if (self.stack_list[ip].stats.endtime - common_start) > self.safety_margin:
-                    ip_ok.append(ip)
+        ip_ok=[ista for ista in xrange(nsta) if (self.stack_list[ip].stats.endtime - common_start) > self.safety_margin]
         common_end=min([self.stack_list[ip].stats.endtime for ip in ip_ok ])
         self.last_common_end_max=common_end+self.dt
         # stack
