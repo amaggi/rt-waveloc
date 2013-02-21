@@ -101,7 +101,21 @@ class RtMigrator(object):
         self.last_common_end_max = UTCDateTime(1970,1,1) 
 
 
-#        ttimes_matrix=np.round(ttimes_matrix / self.dt) * self.dt
+    def update_data(self, tr_list):
+        """
+        Adds a list of traces (one per station) to the system
+        """
+        for tr in tr_list:
+            dt=tr.stats.delta
+            sta=tr.stats.station
+            ista=self.sta_list.index(sta)
+            pp_data = self.obs_rt_list[ista].append(tr, gap_overlap_check = True)
+            # loop over points
+            for ip in xrange(npts):
+                # do time shift and append
+                pp_data_tmp = pp_data.copy()
+                pp_data_tmp.stats.starttime -= np.round(self.ttimes_matrix[ista,ip]/dt) * dt
+                self.point_rt_list[ip][ista].append(pp_data_tmp, gap_overlap_check = True)
 
 
 

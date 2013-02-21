@@ -214,7 +214,9 @@ class SyntheticMigrationTests(unittest.TestCase):
             # loop over stations
             for ista in xrange(nsta):
                 tr = self.obs_split[ista][itr]
-                pp_data = obs_rt_list[ista].append(tr, gap_overlap_check = True)
+                sta=tr.stats.station
+                iista=migrator.sta_list.index(sta)
+                pp_data = obs_rt_list[iista].append(tr, gap_overlap_check = True)
                 # loop over points
                 for ip in xrange(npts):
                     # do time shift and append
