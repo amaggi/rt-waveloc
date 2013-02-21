@@ -5,6 +5,7 @@ from obspy.core import Trace, UTCDateTime
 from obspy.realtime import RtTrace
 from options import RtWavelocOptions
 from hdf5_grids import H5SingleGrid, interpolateTimeGrid
+from migration import RtMigrator
 
 def suite():
     suite = unittest.TestSuite()
@@ -174,24 +175,29 @@ class SyntheticMigrationTests(unittest.TestCase):
         # each row contains ttimes for all points of interest for one station
         #########################
 
+
         # get the names of the ttimes files
         ttimes_fnames=glob.glob(self.wo.ttimes_glob)
+        migrator = RtMigrator(ttimes_fnames)
+        ttimes_matrix = migrator.ttimes_matrix
+        nsta = migrator.nsta
+        npts = migrator.npts
         # get basic lengths
-        f=h5py.File(ttimes_fnames[0],'r')
+        #f=h5py.File(ttimes_fnames[0],'r')
         # copy the x, y, z data over
-        x = np.array(f['x'][:])
-        y = np.array(f['y'][:])
-        z = np.array(f['z'][:])
-        f.close()
+        #x = np.array(f['x'][:])
+        #y = np.array(f['y'][:])
+        #z = np.array(f['z'][:])
+        #f.close()
         # read the files
-        ttimes_list = []
-        for fname in ttimes_fnames:
-            f=h5py.File(fname,'r')
-            ttimes_list.append(np.array(f['ttimes']))
-            f.close()
-        ttimes_matrix=np.vstack(ttimes_list)
-        ttimes_matrix=np.round(ttimes_matrix / self.dt) * self.dt
-        (nsta,npts) = ttimes_matrix.shape
+        #ttimes_list = []
+        #for fname in ttimes_fnames:
+        #    f=h5py.File(fname,'r')
+        #    ttimes_list.append(np.array(f['ttimes']))
+        #    f.close()
+        #ttimes_matrix=np.vstack(ttimes_list)
+        #ttimes_matrix=np.round(ttimes_matrix / self.dt) * self.dt
+        #(nsta,npts) = ttimes_matrix.shape
 
         #########################
         # set up real-time traces
@@ -252,7 +258,7 @@ class SyntheticMigrationTests(unittest.TestCase):
                 for ip in xrange(npts):
                     # do time shift and append
                     pp_data_tmp = pp_data.copy()
-                    pp_data_tmp.stats.starttime -= ttimes_matrix[ista,ip]
+                    pp_data_tmp.stats.starttime -= np.round(ttimes_matrix[ista,ip]/self.dt) * self.dt
                     point_rt_list[ip][ista].append(pp_data_tmp, gap_overlap_check = True)
 
             # update of all input streams is done
@@ -325,17 +331,17 @@ class SyntheticMigrationTests(unittest.TestCase):
             # x coordinate
             tr_x=tr_max.copy()
             tr_x.stats.station = 'XMAX'
-            tr_x.data=x[argmax_data]
+            tr_x.data=migrator.x[argmax_data]
             x_out.append(tr_x, gap_overlap_check = True)
             # y coordinate
             tr_y=tr_max.copy()
             tr_y.stats.station = 'YMAX'
-            tr_y.data=y[argmax_data]
+            tr_y.data=migrator.y[argmax_data]
             y_out.append(tr_y, gap_overlap_check = True)
             # z coordinate
             tr_z=tr_max.copy()
             tr_z.stats.station = 'ZMAX'
-            tr_z.data=z[argmax_data]
+            tr_z.data=migrator.z[argmax_data]
             z_out.append(tr_z, gap_overlap_check = True)
 
         #########################
