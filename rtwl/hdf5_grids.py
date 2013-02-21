@@ -171,6 +171,35 @@ def nll2hdf5(nll_name,h5_name):
     h5=H5NllSingleGrid(h5_name,nll_name)
     del h5
 
+def interpolateTimeGrid(tgrid_name, out_name, x, y, z):
+    """
+    Interpolates a time_grid.hdf5 file to another file containing only the
+    travel-times for the points in x, y, z.
+    """
+
+    # sanity check for length of coordinate arrays
+    if (len(x) != len(y)) or (len(y) != len(z)) :
+        msg = 'Coordinate arrays of different lengths.'
+        raise ValueError(msg)
+
+    npts=len(x)
+
+    # read the file to be interpolated
+    time_grid = H5SingleGrid(tgrid_name)
+
+    # do the interpolation
+    ttimes = time_grid.value_at_points(x,y,z)
+
+    # create the file for output
+    f = h5py.File(out_file,'w')
+    f.create_dataset('x', data=x)
+    f.create_dataset('y', data=y)
+    f.create_dataset('z', data=z)
+    buf = f.create_dataset('ttimes', data = ttimes)
+    buf.attrs['station'] = time_grid.grid_info['station']
+    f.close()
+
+
 def get_interpolated_time_grids(opdict):
     import glob
     from NllGridLib import read_hdr_file
