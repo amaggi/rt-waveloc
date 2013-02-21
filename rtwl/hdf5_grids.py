@@ -171,7 +171,7 @@ def nll2hdf5(nll_name,h5_name):
     h5=H5NllSingleGrid(h5_name,nll_name)
     del h5
 
-def interpolateTimeGrid(tgrid_name, out_name, x, y, z):
+def interpolateTimeGrid(tgrid_file, out_file, x, y, z):
     """
     Interpolates a time_grid.hdf5 file to another file containing only the
     travel-times for the points in x, y, z.
@@ -185,7 +185,7 @@ def interpolateTimeGrid(tgrid_name, out_name, x, y, z):
     npts=len(x)
 
     # read the file to be interpolated
-    time_grid = H5SingleGrid(tgrid_name)
+    time_grid = H5SingleGrid(tgrid_file)
 
     # do the interpolation
     ttimes = time_grid.value_at_points(x,y,z)
