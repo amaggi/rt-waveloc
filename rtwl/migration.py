@@ -155,7 +155,58 @@ class RtMigrator(object):
             tr.stats.starttime=common_start
             # append to appropriate stack_list
             self.stack_list[ip].append(tr, gap_overlap_check = True)
-            #stack_list[ip].plot()
+
+    def updateMax(self):
+
+        npts=self.npts
+        nsta=self.nsta
+
+        # now extract maximum etc from stacks
+        # get common start-time for this point
+        common_start=max([self.stack_list[ip].stats.starttime \
+                    for ip in xrange(npts)])
+        common_start=max(common_start,self.last_common_end_max)
+        # get list of points for which the end-time is compatible
+        # with the common_start time and the safety buffer
+        ip_ok = []
+        for ip in xrange(npts):
+            if (self.stack_list[ip].stats.endtime - common_start) > self.safety_margin:
+                    ip_ok.append(ip)
+        common_end=min([self.stack_list[ip].stats.endtime for ip in ip_ok ])
+        self.last_common_end_max=common_end+self.dt
+        # stack
+        c_list=[]
+        for ip in ip_ok:
+            tr=self.stack_list[ip].copy()
+            tr.trim(common_start, common_end)
+            c_list.append(tr.data)
+        tr_common=np.vstack(c_list)
+        # get maximum and the corresponding point
+        max_data = np.max(tr_common, axis=0)
+        argmax_data = np.argmax(tr_common, axis=0)
+        # prepare traces for passing up
+        # max
+        tr_max=Trace(data=max_data)
+        tr_max.stats.station = 'MAX'
+        tr_max.stats.npts = len(max_data)
+        tr_max.stats.delta = self.dt
+        tr_max.stats.starttime=common_start
+        self.max_out.append(tr_max, gap_overlap_check = True)
+        # x coordinate
+        tr_x=tr_max.copy()
+        tr_x.stats.station = 'XMAX'
+        tr_x.data=self.x[argmax_data]
+        self.x_out.append(tr_x, gap_overlap_check = True)
+        # y coordinate
+        tr_y=tr_max.copy()
+        tr_y.stats.station = 'YMAX'
+        tr_y.data=self.y[argmax_data]
+        self.y_out.append(tr_y, gap_overlap_check = True)
+        # z coordinate
+        tr_z=tr_max.copy()
+        tr_z.stats.station = 'ZMAX'
+        tr_z.data=self.z[argmax_data]
+        self.z_out.append(tr_z, gap_overlap_check = True)
 
 
 

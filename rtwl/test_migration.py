@@ -178,32 +178,8 @@ class SyntheticMigrationTests(unittest.TestCase):
         #########################
 
         migrator = RtMigrator(self.wo)
-
-        ttimes_matrix = migrator.ttimes_matrix
         nsta = migrator.nsta
-        npts = migrator.npts
 
-        #########################
-        # set up real-time traces
-        #########################
-
-        # need a RtTrace per station 
-        obs_rt_list = migrator.obs_rt_list
-        point_rt_list = migrator.point_rt_list
-        stack_list = migrator.stack_list
-
-        max_out = migrator.max_out
-        x_out = migrator.x_out
-        y_out = migrator.y_out
-        z_out = migrator.z_out
-
-        # need a list of common start-times
-        last_common_end_stack = migrator.last_common_end_stack
-        last_common_end_max = migrator.last_common_end_max
-
-        #########################
-        # acquire and pre-process data
-        #########################
 
         ntr=len(self.obs_split[0])
         #########################
@@ -217,60 +193,17 @@ class SyntheticMigrationTests(unittest.TestCase):
             for ista in xrange(nsta):
                 tr = self.obs_split[ista][itr]
                 data_list.append(tr)
+
+
+            # update data
             migrator.updateData(data_list)
 
-            # update of all input streams is done
-            # now do the migration
-
-            # loop over points once to get stacks
+            # update stacks
             migrator.updateStacks()
+            
+            # update max
+            migrator.updateMax()
 
-            # now extract maximum etc from stacks
-            # get common start-time for this point
-            common_start=max([stack_list[ip].stats.starttime \
-                    for ip in xrange(npts)])
-            common_start=max(common_start,last_common_end_max)
-            # get list of points for which the end-time is compatible
-            # with the common_start time and the safety buffer
-            ip_ok = []
-            for ip in xrange(npts):
-                if (stack_list[ip].stats.endtime - common_start) > safety_margin:
-                    ip_ok.append(ip)
-            common_end=min([stack_list[ip].stats.endtime for ip in ip_ok ])
-            last_common_end_max=common_end+self.dt
-            # stack
-            c_list=[]
-            for ip in ip_ok:
-                tr=stack_list[ip].copy()
-                tr.trim(common_start, common_end)
-                c_list.append(tr.data)
-            tr_common=np.vstack(c_list)
-            # get maximum and the corresponding point
-            max_data = np.max(tr_common, axis=0)
-            argmax_data = np.argmax(tr_common, axis=0)
-            # prepare traces for passing up
-            # max
-            tr_max=Trace(data=max_data)
-            tr_max.stats.station = 'MAX'
-            tr_max.stats.npts = len(max_data)
-            tr_max.stats.delta = self.dt
-            tr_max.stats.starttime=common_start
-            max_out.append(tr_max, gap_overlap_check = True)
-            # x coordinate
-            tr_x=tr_max.copy()
-            tr_x.stats.station = 'XMAX'
-            tr_x.data=migrator.x[argmax_data]
-            x_out.append(tr_x, gap_overlap_check = True)
-            # y coordinate
-            tr_y=tr_max.copy()
-            tr_y.stats.station = 'YMAX'
-            tr_y.data=migrator.y[argmax_data]
-            y_out.append(tr_y, gap_overlap_check = True)
-            # z coordinate
-            tr_z=tr_max.copy()
-            tr_z.stats.station = 'ZMAX'
-            tr_z.data=migrator.z[argmax_data]
-            z_out.append(tr_z, gap_overlap_check = True)
 
         #########################
         # end loops
@@ -278,9 +211,9 @@ class SyntheticMigrationTests(unittest.TestCase):
 
         # check we find the same absolute origin time
         #max_out.plot()
-        max_trace=max_out.data
+        max_trace=migrator.max_out.data
         tmax=np.argmax(max_trace)*self.dt
-        tdiff=(max_out.stats.starttime + tmax)-(self.starttime + self.ot)
+        tdiff=(migrator.max_out.stats.starttime + tmax)-(self.starttime + self.ot)
         self.assertEquals(tdiff,0)
 
 
