@@ -25,6 +25,7 @@ class SyntheticMigrationTests(unittest.TestCase):
         self.wo.opdict['outdir'] = 'Test'
         self.wo.opdict['time_grid'] = 'Slow_len.100m.P'
         self.wo.opdict['max_length'] = 120
+        self.wo.opdict['safety_margin'] = 20
 
         self.wo.verifyDirectories()
 
@@ -212,53 +213,17 @@ class SyntheticMigrationTests(unittest.TestCase):
         for itr in xrange(ntr):
             # update all input streams
             # loop over stations
+            data_list=[]
             for ista in xrange(nsta):
                 tr = self.obs_split[ista][itr]
-                sta=tr.stats.station
-                iista=migrator.sta_list.index(sta)
-                pp_data = obs_rt_list[iista].append(tr, gap_overlap_check = True)
-                # loop over points
-                for ip in xrange(npts):
-                    # do time shift and append
-                    pp_data_tmp = pp_data.copy()
-                    pp_data_tmp.stats.starttime -= np.round(ttimes_matrix[ista,ip]/self.dt) * self.dt
-                    point_rt_list[ip][ista].append(pp_data_tmp, gap_overlap_check = True)
+                data_list.append(tr)
+            migrator.updateData(data_list)
 
             # update of all input streams is done
             # now do the migration
 
             # loop over points once to get stacks
-            for ip in xrange(npts):
-                # get common start-time for this point
-                common_start=max([point_rt_list[ip][ista].stats.starttime \
-                        for ista in xrange(nsta)])
-                common_start=max(common_start,last_common_end_stack[ip])
-                # get list of stations for which the end-time is compatible
-                # with the common_start time and the safety buffer
-                ista_ok=[]
-                for ista in xrange(nsta):
-                    if (point_rt_list[ip][ista].stats.endtime - common_start) > safety_margin :
-                        ista_ok.append(ista)
-                # get common end-time
-                common_end=min([ point_rt_list[ip][ista].stats.endtime for ista in ista_ok])
-                last_common_end_stack[ip]=common_end+self.dt
-                # stack
-                c_list=[]
-                for ista in ista_ok:
-                    tr=point_rt_list[ip][ista].copy()
-                    tr.trim(common_start, common_end)
-                    c_list.append(tr.data)
-                tr_common=np.vstack(c_list)
-                stack_data = np.sum(tr_common, axis=0)
-                # prepare trace for passing up
-                tr=Trace(data=stack_data)
-                tr.stats.station = 'STACK'
-                tr.stats.npts = len(stack_data)
-                tr.stats.delta = self.dt
-                tr.stats.starttime=common_start
-                # append to appropriate stack_list
-                stack_list[ip].append(tr, gap_overlap_check = True)
-                #stack_list[ip].plot()
+            migrator.updateStacks()
 
             # now extract maximum etc from stacks
             # get common start-time for this point

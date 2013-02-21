@@ -29,6 +29,8 @@ class RtMigrator(object):
     last_common_end_stack=[]
     last_common_end_max=None
 
+    dt=1.0
+
 
     def __init__(self,waveloc_options):
         """
@@ -61,6 +63,8 @@ class RtMigrator(object):
 
         # initialize the RtTrace(s)
         ##########################
+        max_length = waveloc_options.opdict['max_length']
+        self.safety_margin = waveloc_options.opdict['safety_margin']
 
         # need a RtTrace per station 
         self.obs_rt_list=[RtTrace() for sta in self.sta_list]
@@ -71,7 +75,6 @@ class RtMigrator(object):
 
         # need nsta streams for each point we test (nsta x npts)
         # for shifted waveforms
-        max_length = waveloc_options.opdict['max_length']
         self.point_rt_list=[[RtTrace(max_length=max_length) \
                 for ista in xrange(self.nsta)] for ip in xrange(self.npts)]
 
@@ -101,21 +104,59 @@ class RtMigrator(object):
         self.last_common_end_max = UTCDateTime(1970,1,1) 
 
 
-    def update_data(self, tr_list):
+    def updateData(self, tr_list):
         """
         Adds a list of traces (one per station) to the system
         """
         for tr in tr_list:
-            dt=tr.stats.delta
+            self.dt=tr.stats.delta
             sta=tr.stats.station
             ista=self.sta_list.index(sta)
             pp_data = self.obs_rt_list[ista].append(tr, gap_overlap_check = True)
             # loop over points
-            for ip in xrange(npts):
+            for ip in xrange(self.npts):
                 # do time shift and append
                 pp_data_tmp = pp_data.copy()
-                pp_data_tmp.stats.starttime -= np.round(self.ttimes_matrix[ista,ip]/dt) * dt
+                pp_data_tmp.stats.starttime -= np.round(self.ttimes_matrix[ista,ip]/self.dt) * self.dt
                 self.point_rt_list[ip][ista].append(pp_data_tmp, gap_overlap_check = True)
+
+    def updateStacks(self):
+
+        npts=self.npts
+        nsta=self.nsta
+
+        for ip in xrange(npts):
+            # get common start-time for this point
+            common_start=max([self.point_rt_list[ip][ista].stats.starttime \
+                     for ista in xrange(nsta)])
+            common_start=max(common_start,self.last_common_end_stack[ip])
+            # get list of stations for which the end-time is compatible
+            # with the common_start time and the safety buffer
+            ista_ok=[]
+            for ista in xrange(nsta):
+                if (self.point_rt_list[ip][ista].stats.endtime - common_start) > self.safety_margin :
+                        ista_ok.append(ista)
+            # get common end-time
+            common_end=min([ self.point_rt_list[ip][ista].stats.endtime for ista in ista_ok])
+            self.last_common_end_stack[ip]=common_end+self.dt
+            # stack
+            c_list=[]
+            for ista in ista_ok:
+                tr=self.point_rt_list[ip][ista].copy()
+                tr.trim(common_start, common_end)
+                c_list.append(tr.data)
+            tr_common=np.vstack(c_list)
+            stack_data = np.sum(tr_common, axis=0)
+            # prepare trace for passing up
+            tr=Trace(data=stack_data)
+            tr.stats.station = 'STACK'
+            tr.stats.npts = len(stack_data)
+            tr.stats.delta = self.dt
+            tr.stats.starttime=common_start
+            # append to appropriate stack_list
+            self.stack_list[ip].append(tr, gap_overlap_check = True)
+            #stack_list[ip].plot()
+
 
 
 
