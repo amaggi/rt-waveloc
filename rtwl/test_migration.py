@@ -1,10 +1,10 @@
-import unittest, os, glob
+import unittest, os, glob, h5py
 import numpy as np
 import am_rt_signal 
 from obspy.core import Trace, UTCDateTime
 from obspy.realtime import RtTrace
 from options import RtWavelocOptions
-from hdf5_grids import H5SingleGrid
+from hdf5_grids import H5SingleGrid, interpolateTimeGrid
 
 def suite():
     suite = unittest.TestSuite()
@@ -21,15 +21,16 @@ class SyntheticMigrationTests(unittest.TestCase):
         rt_dict['convolve']=(am_rt_signal.convolve,1)
         
         self.wo = RtWavelocOptions()
-        self.wo.verify_base_path()
-        self.wo.verify_lib_dir()
+        self.wo.opdict['outdir'] = 'Test'
         self.wo.opdict['time_grid'] = 'Slow_len.100m.P'
 
-        base_path=self.wo.opdict['base_path']
-        lib_path=os.path.join(base_path,'lib')
+        self.wo.verifyDirectories()
 
-        time_grid_names = glob.glob(os.path.join(lib_path, \
-                self.wo.opdict['time_grid'] + '*.hdf5'))
+        ttimes_path=self.wo.ttimes_dir
+
+        time_grid_names = glob.glob(self.wo.grid_glob)
+        base_names=[os.path.basename(fname) for fname in time_grid_names]
+        tt_names=[os.path.join(ttimes_path,base_name) for base_name in base_names]
         self.time_grids=[H5SingleGrid(fname) for fname in time_grid_names]
 
         # get grid extent from first time-grid
@@ -42,6 +43,15 @@ class SyntheticMigrationTests(unittest.TestCase):
                 + tgrid.grid_info['y_orig']
         self.z = 0.5 * tgrid.grid_info['nz'] * tgrid.grid_info['dz'] \
                 + tgrid.grid_info['z_orig']
+
+        x=np.array([self.x, self.x+3.0])
+        y=np.array([self.y, self.y+3.0])
+        z=np.array([self.z, self.z+1.0])
+
+        for i in xrange(len(time_grid_names)):
+            outname,ext=os.path.splitext(tt_names[i])
+            outname = outname +'_ttimes.hdf5'
+            interpolateTimeGrid(time_grid_names[i], outname, x, y, z)
 
         # set up some synthetic parameters
         self.dt=0.01
@@ -74,18 +84,29 @@ class SyntheticMigrationTests(unittest.TestCase):
 
 
     def test_migration_true(self):
-        #import matplotlib.pyplot as plt
 
-        # set up sta-times matrix
-        # each row contains ttimes for all points of interest for one station
-        x=np.array([self.x, self.x+3.0])
-        y=np.array([self.y, self.y+3.0])
-        z=np.array([self.z, self.z+1.0])
-        ttimes_list=[tgrid.value_at_points(x, y, z) \
-                for tgrid in self.time_grids]
+        # set up the ttimes matrix
+        ##########################
+
+        # get the names of the ttimes files
+        ttimes_fnames=glob.glob(self.wo.ttimes_glob)
+        # get basic lengths
+        f=h5py.File(ttimes_fnames[0],'r')
+        # copy the x, y, z data over
+        x = np.array(f['x'][:])
+        y = np.array(f['y'][:])
+        z = np.array(f['z'][:])
+        f.close()
+        # read the files
+        ttimes_list = []
+        for fname in ttimes_fnames:
+            f=h5py.File(fname,'r')
+            ttimes_list.append(np.array(f['ttimes']))
+            f.close()
         ttimes_matrix=np.vstack(ttimes_list)
         ttimes_matrix=np.round(ttimes_matrix / self.dt) * self.dt
         (nsta,npts) = ttimes_matrix.shape
+
 
         stack_list=[]
         for ip in xrange(npts):
@@ -152,11 +173,22 @@ class SyntheticMigrationTests(unittest.TestCase):
         # set up sta-times matrix
         # each row contains ttimes for all points of interest for one station
         #########################
-        x=np.array([self.x, self.x+3.0])
-        y=np.array([self.y, self.y+3.0])
-        z=np.array([self.z, self.z+1.0])
-        ttimes_list=[tgrid.value_at_points(x, y, z) \
-                for tgrid in self.time_grids]
+
+        # get the names of the ttimes files
+        ttimes_fnames=glob.glob(self.wo.ttimes_glob)
+        # get basic lengths
+        f=h5py.File(ttimes_fnames[0],'r')
+        # copy the x, y, z data over
+        x = np.array(f['x'][:])
+        y = np.array(f['y'][:])
+        z = np.array(f['z'][:])
+        f.close()
+        # read the files
+        ttimes_list = []
+        for fname in ttimes_fnames:
+            f=h5py.File(fname,'r')
+            ttimes_list.append(np.array(f['ttimes']))
+            f.close()
         ttimes_matrix=np.vstack(ttimes_list)
         ttimes_matrix=np.round(ttimes_matrix / self.dt) * self.dt
         (nsta,npts) = ttimes_matrix.shape
