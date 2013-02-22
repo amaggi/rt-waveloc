@@ -181,20 +181,20 @@ class RtMigrator(object):
         argmax_data = np.argmax(tr_common, axis=0)
         # prepare traces for passing up
         # max
-        stats={'station':'MAX', 'npts':len(max_data), 'delta':self.dt, \
+        stats={'station':'Max', 'npts':len(max_data), 'delta':self.dt, \
                 'starttime':common_start}
         tr_max=Trace(data=max_data,header=stats)
         self.max_out.append(tr_max, gap_overlap_check = False)
         # x coordinate
-        stats['station'] = 'XMAX'
+        stats['station'] = 'xMax'
         tr_x=Trace(data=self.x[argmax_data],header=stats)
         self.x_out.append(tr_x, gap_overlap_check = False)
         # y coordinate
-        stats['station'] = 'YMAX'
+        stats['station'] = 'yMax'
         tr_y=Trace(data=self.y[argmax_data],header=stats)
         self.y_out.append(tr_y, gap_overlap_check = False)
         # z coordinate
-        stats['station'] = 'ZMAX'
+        stats['station'] = 'zMax'
         tr_z=Trace(data=self.z[argmax_data],header=stats)
         self.z_out.append(tr_z, gap_overlap_check = False)
 
