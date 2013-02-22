@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def plotMaxXYZ(tr_max, tr_x, tr_y, tr_z):
+def plotMaxXYZ(tr_max, tr_x, tr_y, tr_z, filename):
 
     npts = tr_max.stats.npts
     dt = tr_max.stats.delta
@@ -18,7 +18,7 @@ def plotMaxXYZ(tr_max, tr_x, tr_y, tr_z):
     pos=list(p.get_position().bounds)
     fig.text(pos[0], pos[1]+pos[3], '(a)', fontsize=12)
     p.tick_params(labelsize=10)
-    p.plot(t,tr_max.data)
+    plt.scatter(t, tr_max.data, s=40, c=tr_max.data, marker='.', linewidths=(0,), clip_on=False)
     p.xaxis.set_ticks_position('none')
     p.xaxis.set_ticks(())
     plt.ylabel(tr_max.stats.station, size=10)
@@ -58,8 +58,6 @@ def plotMaxXYZ(tr_max, tr_x, tr_y, tr_z):
     p.yaxis.set_ticks_position('right')
     p.set_ylim(min(tr_z.data),max(tr_z.data))
 
-
-
-
-    plt.show()
+    #plt.show()
+    plt.savefig(filename)
 
