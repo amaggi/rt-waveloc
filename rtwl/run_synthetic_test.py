@@ -5,7 +5,7 @@ from migration import RtMigrator
 from plotting import plotMaxXYZ
 
 
-n_test=200
+n_test=500
 
 # set up options
 wo = RtWavelocOptions()

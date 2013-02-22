@@ -19,7 +19,7 @@ rt_dict['dx2']=(am_rt_signal.dx2,2)
 
 ###############
 
-n_test=200
+n_test=500
 
 # set up options
 wo = RtWavelocOptions()
@@ -35,7 +35,7 @@ wo.opdict['filt_sigma'] = 7.0
 wo.opdict['kwin'] = 3.0
 
 
-# make synthetic data
+# read data
 
 fnames=glob.glob(os.path.join(wo.data_dir, wo.opdict['data_glob']))
 obs_list=[]
@@ -91,7 +91,7 @@ for itr in xrange(ntr):
 #########################
 
 tac=time.time()
-print "Time taken for two-minute 100Hz synthetic test on %d points : %.2f s"%(n_test, tac-tic)
+print "Time taken for four-minute 100Hz real-data test on %d points : %.2f s"%(n_test, tac-tic)
 
 st=migrator.max_out.stats.starttime+110
 ed=migrator.max_out.stats.starttime+125
