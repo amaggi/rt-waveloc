@@ -32,6 +32,22 @@ class RtWavelocOptions(object):
             msg="Directory %s does not exist"%lib_path
             raise IOError(msg)
 
+    def _verifyDataDir(self):
+        """
+        Verify existance of data in $RTWAVELOC_PATH/data 
+        """
+        self._verifyBasePath()
+        base_path=self.opdict['base_path']
+
+        if not self.opdict.has_key('datadir'):
+            msg='datadir option not set'
+            raise ValueError(msg)
+
+        datadir=os.path.join(base_path,'data',self.opdict['datadir'])
+        if not os.path.isdir(datadir):  
+            msg="Directory %s does not exist"%datadir
+            raise IOError(msg)
+ 
     def _verifyOutDir(self):
         """
         Verify existance of outdir in $RTWAVELOC_PATH/out or create it
@@ -61,6 +77,12 @@ class RtWavelocOptions(object):
         base_path= self.opdict['base_path']
         outdir=self.opdict['outdir']
         return os.path.join(base_path, 'out', outdir)
+
+    def _getDataDir_(self):
+        self._verifyDataDir()
+        base_path= self.opdict['base_path']
+        datadir=self.opdict['datadir']
+        return os.path.join(base_path, 'data', datadir)
 
     def _getTtimesDir_(self):
         self._verifyOutDir()
@@ -92,6 +114,7 @@ class RtWavelocOptions(object):
 
     lib_dir = property(_getLibDir_)
     out_dir = property(_getOutDir_)
+    data_dir = property(_getDataDir_)
     ttimes_dir = property(_getTtimesDir_)
     fig_dir = property(_getFigDir_)
     ttimes_glob = property(_getTtimesGlob_)

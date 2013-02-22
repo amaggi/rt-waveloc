@@ -2,6 +2,7 @@ import h5py, glob
 import numpy as np
 from obspy.core import Trace, UTCDateTime
 from obspy.realtime import RtTrace
+from am_signal import gaussian_filter
 
 class RtMigrator(object):
     """
@@ -101,6 +102,9 @@ class RtMigrator(object):
         self.y_out = RtTrace()
         self.z_out = RtTrace()
 
+        if not wo.is_syn:
+            self.max_out.registerRtProcess('boxcar', width=50)
+
         # need a list of common start-times
         self.last_common_end_stack = [UTCDateTime(1970,1,1) for i in xrange(self.npts)]
         self.last_common_end_max = UTCDateTime(1970,1,1) 
@@ -123,11 +127,13 @@ class RtMigrator(object):
             kwin = wo.opdict['kwin']
             # register pre-processing of data here
             for rtt in self.obs_rt_list:
+                #rtt.registerRtProcess('scale', factor=1.0)
                 rtt.registerRtProcess('convolve', conv_signal=gauss)
-                rtt.registerRtProcess('sw_kurtosis', win=kwin)
-                rtt.registerRtProcess('boxcar', win=50)
-                rtt.registerRtProcess('differentiate')
-                rtt.registerRtProcess('neg_to_zero')
+                #rtt.registerRtProcess('sw_kurtosis', win=kwin)
+                rtt.registerRtProcess('dx2', win=kwin)
+                #rtt.registerRtProcess('boxcar', width=50)
+                #rtt.registerRtProcess('differentiate')
+                #rtt.registerRtProcess('neg_to_zero')
 
     def updateData(self, tr_list):
         """
@@ -137,15 +143,20 @@ class RtMigrator(object):
             if (self.dt!=tr.stats.delta):
                 msg = 'Value of dt from options file %.2f does not match dt from data %2f'%(self.dt, tr.stats.delta)
                 raise ValueError()
+            # pre-correct for filter_shift
+            #tr.stats.starttime -= np.round(self.filter_shift/self.dt) * self.dt
+            tr.stats.starttime -= self.filter_shift
             sta=tr.stats.station
             ista=self.sta_list.index(sta)
-            pp_data = self.obs_rt_list[ista].append(tr, gap_overlap_check = False)
+            # make dtype of data float if it is not already
+            tr.data=tr.data.astype(np.float32)
+            pp_data = self.obs_rt_list[ista].append(tr, gap_overlap_check = True)
             # loop over points
             for ip in xrange(self.npts):
                 # do time shift and append
                 pp_data_tmp = pp_data.copy()
                 pp_data_tmp.stats.starttime -= np.round(self.ttimes_matrix[ista,ip]/self.dt) * self.dt
-                self.point_rt_list[ip][ista].append(pp_data_tmp, gap_overlap_check = False)
+                self.point_rt_list[ip][ista].append(pp_data_tmp, gap_overlap_check = True)
 
     def updateStacks(self):
 
@@ -155,6 +166,7 @@ class RtMigrator(object):
             self._updateStack(ip)
 
     def _updateStack(self,ip):
+        UTCDateTime.DEFAULT_PRECISION=2
         nsta=self.nsta
         # get common start-time for this point
         common_start=max([self.point_rt_list[ip][ista].stats.starttime \
@@ -178,8 +190,9 @@ class RtMigrator(object):
         stats={'station':'STACK', 'npts':len(stack_data), 'delta':self.dt, \
                 'starttime':common_start}
         tr=Trace(data=stack_data,header=stats)
+        #import pdb; pdb.set_trace()
         # append to appropriate stack_list
-        self.stack_list[ip].append(tr, gap_overlap_check = False)
+        self.stack_list[ip].append(tr, gap_overlap_check = True)
 
     def updateMax(self):
 
@@ -193,7 +206,7 @@ class RtMigrator(object):
         common_start=max(common_start,self.last_common_end_max)
         # get list of points for which the end-time is compatible
         # with the common_start time and the safety buffer
-        ip_ok=[ista for ista in xrange(nsta) if (self.stack_list[ip].stats.endtime - common_start) > self.safety_margin]
+        ip_ok=[ip for ip in xrange(npts) if (self.stack_list[ip].stats.endtime - common_start) > self.safety_margin]
         common_end=min([self.stack_list[ip].stats.endtime for ip in ip_ok ])
         self.last_common_end_max=common_end+self.dt
         # stack
@@ -211,19 +224,19 @@ class RtMigrator(object):
         stats={'station':'Max', 'npts':len(max_data), 'delta':self.dt, \
                 'starttime':common_start}
         tr_max=Trace(data=max_data,header=stats)
-        self.max_out.append(tr_max, gap_overlap_check = False)
+        self.max_out.append(tr_max, gap_overlap_check = True)
         # x coordinate
         stats['station'] = 'xMax'
         tr_x=Trace(data=self.x[argmax_data],header=stats)
-        self.x_out.append(tr_x, gap_overlap_check = False)
+        self.x_out.append(tr_x, gap_overlap_check = True)
         # y coordinate
         stats['station'] = 'yMax'
         tr_y=Trace(data=self.y[argmax_data],header=stats)
-        self.y_out.append(tr_y, gap_overlap_check = False)
+        self.y_out.append(tr_y, gap_overlap_check = True)
         # z coordinate
         stats['station'] = 'zMax'
         tr_z=Trace(data=self.z[argmax_data],header=stats)
-        self.z_out.append(tr_z, gap_overlap_check = False)
+        self.z_out.append(tr_z, gap_overlap_check = True)
 
 
 

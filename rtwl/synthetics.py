@@ -12,7 +12,7 @@ def make_synthetic_data(waveloc_options):
 
     
     # set up some synthetic parameters
-    dt=0.01
+    dt=wo.opdict['dt']
     t = np.arange(12000) * dt
     ot = 50
     starttime=UTCDateTime()
