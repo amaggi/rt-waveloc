@@ -48,6 +48,8 @@ class RtWavelocOptions(object):
             os.makedirs(outdir)
         if not os.path.isdir(os.path.join(outdir,'ttimes')):  
             os.makedirs(os.path.join(outdir,'ttimes'))
+        if not os.path.isdir(os.path.join(outdir,'fig')):  
+            os.makedirs(os.path.join(outdir,'fig'))
 
     def _getLibDir_(self):
         self._verifyLibDir()
@@ -66,6 +68,13 @@ class RtWavelocOptions(object):
         outdir=self.opdict['outdir']
         return os.path.join(base_path, 'out', outdir, 'ttimes')
 
+    def _getFigDir_(self):
+        self._verifyOutDir()
+        base_path= self.opdict['base_path']
+        outdir=self.opdict['outdir']
+        return os.path.join(base_path, 'out', outdir, 'fig')
+
+
     def _getTtimesGlob_(self):
         return os.path.join(self.ttimes_dir, self.opdict['time_grid']+'*_ttimes.hdf5')
 
@@ -75,6 +84,7 @@ class RtWavelocOptions(object):
     lib_dir = property(_getLibDir_)
     out_dir = property(_getOutDir_)
     ttimes_dir = property(_getTtimesDir_)
+    fig_dir = property(_getFigDir_)
     ttimes_glob = property(_getTtimesGlob_)
     grid_glob = property(_getGridGlob_)
 
