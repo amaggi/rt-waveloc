@@ -30,15 +30,17 @@ class RtMigrator(object):
     last_common_end_max=None
 
     dt=1.0
+    filter_shift=0.0
 
 
     def __init__(self,waveloc_options):
         """
         Initialize from a set of travel-times as hdf5 files
         """
+        wo=waveloc_options
         # initialize the travel-times
         #############################
-        ttimes_fnames=glob.glob(waveloc_options.ttimes_glob)
+        ttimes_fnames=glob.glob(wo.ttimes_glob)
         # get basic lengths
         f=h5py.File(ttimes_fnames[0],'r')
         # copy the x, y, z data over
@@ -63,15 +65,15 @@ class RtMigrator(object):
 
         # initialize the RtTrace(s)
         ##########################
-        max_length = waveloc_options.opdict['max_length']
-        self.safety_margin = waveloc_options.opdict['safety_margin']
+        max_length = wo.opdict['max_length']
+        self.safety_margin = wo.opdict['safety_margin']
+        self.dt = wo.opdict['dt']
 
         # need a RtTrace per station 
         self.obs_rt_list=[RtTrace() for sta in self.sta_list]
 
-        # register pre-processing of data here
-        for rtt in self.obs_rt_list:
-            rtt.registerRtProcess('scale', factor=1.0)
+        # register pre-processing
+        self._register_preprocessing(wo)
 
         # need nsta streams for each point we test (nsta x npts)
         # for shifted waveforms
@@ -103,13 +105,38 @@ class RtMigrator(object):
         self.last_common_end_stack = [UTCDateTime(1970,1,1) for i in xrange(self.npts)]
         self.last_common_end_max = UTCDateTime(1970,1,1) 
 
+    def _register_preprocessing(self, waveloc_options):
+        wo=waveloc_options
+        
+        # if this is a synthetic
+        if wo.is_syn:
+            # do dummy processing only
+            for rtt in self.obs_rt_list:
+                rtt.registerRtProcess('scale', factor=1.0)
+
+        else:
+            # get gaussian filtering parameters
+            f0, sigma, dt = wo.gauss_filter
+            gauss, self.filter_shift = gaussian_filter(f0, sigma, dt)
+            # get kwin
+            # for now just use one window
+            kwin = wo.opdict['kwin']
+            # register pre-processing of data here
+            for rtt in self.obs_rt_list:
+                rtt.registerRtProcess('convolve', conv_signal=gauss)
+                rtt.registerRtProcess('sw_kurtosis', win=kwin)
+                rtt.registerRtProcess('boxcar', win=50)
+                rtt.registerRtProcess('differentiate')
+                rtt.registerRtProcess('neg_to_zero')
 
     def updateData(self, tr_list):
         """
         Adds a list of traces (one per station) to the system
         """
         for tr in tr_list:
-            self.dt=tr.stats.delta
+            if (self.dt!=tr.stats.delta):
+                msg = 'Value of dt from options file %.2f does not match dt from data %2f'%(self.dt, tr.stats.delta)
+                raise ValueError()
             sta=tr.stats.station
             ista=self.sta_list.index(sta)
             pp_data = self.obs_rt_list[ista].append(tr, gap_overlap_check = False)

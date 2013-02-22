@@ -27,6 +27,8 @@ class SyntheticMigrationTests(unittest.TestCase):
         self.wo.opdict['time_grid'] = 'Slow_len.100m.P'
         self.wo.opdict['max_length'] = 120
         self.wo.opdict['safety_margin'] = 20
+        self.wo.opdict['dt'] = 0.01
+        self.wo.opdict['syn'] = True
 
 #        self.wo.verifyDirectories()
 

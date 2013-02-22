@@ -81,12 +81,23 @@ class RtWavelocOptions(object):
     def _getGridGlob_(self):
         return os.path.join(self.lib_dir, self.opdict['time_grid']+'*.hdf5')
 
+    def _getGaussFilter_(self):
+        return self.opdict['filt_f0'], self.opdict['filt_sigma'], self.opdict['dt']
+
+    def _getIsSyn_(self):
+        if self.opdict.has_key('syn') and self.opdict['syn'] == True :
+            return True
+        else:
+            return False
+
     lib_dir = property(_getLibDir_)
     out_dir = property(_getOutDir_)
     ttimes_dir = property(_getTtimesDir_)
     fig_dir = property(_getFigDir_)
     ttimes_glob = property(_getTtimesGlob_)
     grid_glob = property(_getGridGlob_)
+    gauss_filter = property(_getGaussFilter_)
+    is_syn = property(_getIsSyn_)
 
 
     def verifyDirectories(self):

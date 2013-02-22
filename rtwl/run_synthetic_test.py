@@ -13,6 +13,8 @@ wo.opdict['outdir'] = 'SynTest'
 wo.opdict['time_grid'] = 'Slow_len.100m.P'
 wo.opdict['max_length'] = 120
 wo.opdict['safety_margin'] = 20
+wo.opdict['dt'] = 0.01
+wo.opdict['syn'] = True
 
 # make synthetic data
 obs_list, ot, (x0,y0,z0) = make_synthetic_data(wo)
