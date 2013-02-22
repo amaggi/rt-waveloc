@@ -213,13 +213,13 @@ class SyntheticMigrationTests(unittest.TestCase):
 
         # check we find the same absolute origin time
         #migrator.max_out.plot()
-        st=migrator.max_out.stats.starttime+40
-        ed=migrator.max_out.stats.starttime+60
+        st=migrator.max_out.stats.starttime+45
+        ed=migrator.max_out.stats.starttime+55
         max_out=migrator.max_out.slice(st,ed)
         x_out=migrator.x_out.slice(st,ed)
         y_out=migrator.y_out.slice(st,ed)
         z_out=migrator.z_out.slice(st,ed)
-        #plotMaxXYZ(max_out, x_out, y_out, z_out)
+        plotMaxXYZ(max_out, x_out, y_out, z_out, 'test_out.png')
         max_trace=migrator.max_out.data
         tmax=np.argmax(max_trace)*self.dt
         tdiff=(migrator.max_out.stats.starttime + tmax)-(self.starttime + self.ot)
