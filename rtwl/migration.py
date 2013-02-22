@@ -127,10 +127,8 @@ class RtMigrator(object):
             kwin = wo.opdict['kwin']
             # register pre-processing of data here
             for rtt in self.obs_rt_list:
-                #rtt.registerRtProcess('scale', factor=1.0)
                 rtt.registerRtProcess('convolve', conv_signal=gauss)
-                #rtt.registerRtProcess('dx2', win=kwin)
-                rtt.registerRtProcess('kurtosis', win=kwin)
+                rtt.registerRtProcess('sw_kurtosis', win=kwin)
                 rtt.registerRtProcess('boxcar', width=50)
                 rtt.registerRtProcess('differentiate')
                 rtt.registerRtProcess('neg_to_zero')
