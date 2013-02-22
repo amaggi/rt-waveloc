@@ -50,7 +50,7 @@ def make_synthetic_data(waveloc_options):
 
     return obs_list, ot, (x,y,z)
 
-def generate_random_test_points(waveloc_options,npts,x0,y0,z0):
+def generate_random_test_points(waveloc_options,npts,loc0=None):
     """
     Generates ttimes files for npts random test points including x0, y0, z0.
     """
@@ -65,18 +65,20 @@ def generate_random_test_points(waveloc_options,npts,x0,y0,z0):
     z_range=tgrid.grid_info['nz']*tgrid.grid_info['dz']
 
     # generate points
-    x_test=np.random.rand(npts-1)*x_range + tgrid.grid_info['x_orig']
-    y_test=np.random.rand(npts-1)*y_range + tgrid.grid_info['y_orig']
-    z_test=np.random.rand(npts-1)*z_range + tgrid.grid_info['z_orig']
+    x_test=np.random.rand(npts)*x_range + tgrid.grid_info['x_orig']
+    y_test=np.random.rand(npts)*y_range + tgrid.grid_info['y_orig']
+    z_test=np.random.rand(npts)*z_range + tgrid.grid_info['z_orig']
     x=np.empty(npts)
     y=np.empty(npts)
     z=np.empty(npts)
-    x[0]=x0
-    y[0]=y0
-    z[0]=z0
-    x[1:npts]=x_test
-    y[1:npts]=y_test
-    z[1:npts]=z_test
+    x[:]=x_test
+    y[:]=y_test
+    z[:]=z_test
+    if not loc0 == None:
+        (x0, y0, z0) = loc0
+        x[0]=x0
+        y[0]=y0
+        z[0]=z0
 
     # generate files
     ttimes_path=wo.ttimes_dir

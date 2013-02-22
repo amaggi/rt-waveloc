@@ -27,7 +27,8 @@ for obs in obs_list:
     obs_split.append(split)
 
 # generate ttimes_files for test
-generate_random_test_points(wo, n_test, x0, y0, z0)
+#generate_random_test_points(wo, n_test, (x0, y0, z0))
+generate_random_test_points(wo, n_test)
 
 tic=time.time()
 

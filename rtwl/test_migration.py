@@ -44,7 +44,7 @@ class SyntheticMigrationTests(unittest.TestCase):
 
         # generate ttimes_files for test
         n_test=150
-        generate_random_test_points(self.wo, n_test, x0, y0, z0)
+        generate_random_test_points(self.wo, n_test, (x0, y0, z0))
 
     def test_rt_migration_true(self):
 
