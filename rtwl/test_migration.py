@@ -6,6 +6,7 @@ from obspy.realtime import RtTrace
 from options import RtWavelocOptions
 from hdf5_grids import H5SingleGrid, interpolateTimeGrid
 from migration import RtMigrator
+from plotting import plotMaxXYZ
 
 def suite():
     suite = unittest.TestSuite()
@@ -48,9 +49,9 @@ class SyntheticMigrationTests(unittest.TestCase):
                 + tgrid.grid_info['z_orig']
 
         n_test=100
-        x_test=(np.random.randn(n_test)*2.0 - 1.0)*4.0
-        y_test=(np.random.randn(n_test)*2.0 - 1.0)*3.0
-        z_test=(np.random.randn(n_test)*2.0 - 1.0)*2.0
+        x_test=(np.random.randn(n_test)*2.0 - 1.0)*4.0 + self.x
+        y_test=(np.random.randn(n_test)*2.0 - 1.0)*3.0 + self.y
+        z_test=(np.random.randn(n_test)*2.0 - 1.0)*2.0 + self.z
         x=np.empty(n_test+1)
         y=np.empty(n_test+1)
         z=np.empty(n_test+1)
@@ -212,10 +213,18 @@ class SyntheticMigrationTests(unittest.TestCase):
 
         # check we find the same absolute origin time
         #migrator.max_out.plot()
+        st=migrator.max_out.stats.starttime+40
+        ed=migrator.max_out.stats.starttime+60
+        max_out=migrator.max_out.slice(st,ed)
+        x_out=migrator.x_out.slice(st,ed)
+        y_out=migrator.y_out.slice(st,ed)
+        z_out=migrator.z_out.slice(st,ed)
+        #plotMaxXYZ(max_out, x_out, y_out, z_out)
         max_trace=migrator.max_out.data
         tmax=np.argmax(max_trace)*self.dt
         tdiff=(migrator.max_out.stats.starttime + tmax)-(self.starttime + self.ot)
         self.assertEquals(tdiff,0)
+
 
 
 
