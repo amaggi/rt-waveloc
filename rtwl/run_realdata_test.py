@@ -1,4 +1,5 @@
 import os, time, glob
+import numpy as np
 from obspy.core import read
 
 import am_rt_signal
@@ -69,6 +70,9 @@ ntr=len(obs_split[0])
 # start loops
 #########################
 # loop over segments (simulate real-time data)
+t_update_data=[]
+t_update_stacks=[]
+t_update_max=[]
 for itr in xrange(ntr):
     # update all input streams
     # loop over stations
@@ -78,23 +82,35 @@ for itr in xrange(ntr):
         data_list.append(tr)
 
     # update data
+    t0=time.time()
     migrator.updateData(data_list)
+    t_update_data.append(time.time()-t0)
 
     # update stacks
+    t0=time.time()
     migrator.updateStacks()
+    t_update_stacks.append(time.time()-t0)
             
     # update max
+    t0=time.time()
     migrator.updateMax()
+    t_update_max.append(time.time()-t0)
 
 #########################
 # end loops
 #########################
 
 tac=time.time()
-print "Time taken for four-minute 100Hz real-data test on %d points : %.2f s"%(n_test, tac-tic)
+print "Time taken for four-minute 100Hz real-data test for %d stations on %d test-points : %.2f s"%(nsta, n_test, tac-tic)
 
-st=migrator.max_out.stats.starttime+110
-ed=migrator.max_out.stats.starttime+125
+print "Times taken for updating data   : %.2f s" % np.sum(t_update_data)
+print "Times taken for updating stacks : %.2f s" % np.sum(t_update_stacks)
+print "Times taken for updating max    : %.2f s" % np.sum(t_update_max)
+
+st=migrator.max_out.stats.starttime+100
+ed=migrator.max_out.stats.starttime+130
+#st=migrator.max_out.stats.starttime
+#ed=migrator.max_out.stats.endtime
 max_out=migrator.max_out.slice(st,ed)
 x_out=migrator.x_out.slice(st,ed)
 y_out=migrator.y_out.slice(st,ed)
