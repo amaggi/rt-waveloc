@@ -354,8 +354,8 @@ def sw_kurtosis(trace, win=3.0, rtmemory_list=None):
         first_trace=True
         memory_size_input  = mem_size
         memory_size_output = 0
-        rtmemory.initialize(sample.dtype, memory_size_input,\
-                                memory_size_output, sample_start[::-1], 0)
+        rtmemory.initialize(sample.dtype, memory_size_input, memory_size_output)
+        rtmemory.input=sample_start[::-1]
 
 
     # make an array of the right dimension
