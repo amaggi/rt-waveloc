@@ -1,4 +1,4 @@
-import h5py, glob
+import h5py, glob, time
 import numpy as np
 from obspy.core import Trace, UTCDateTime
 from obspy.realtime import RtTrace
@@ -137,6 +137,10 @@ class RtMigrator(object):
         """
         Adds a list of traces (one per station) to the system
         """
+        t_copy=0.0
+        t_append=0.0
+        t_append_proc=0.0
+        t0_update=time.time()
         for tr in tr_list:
             if (self.dt!=tr.stats.delta):
                 msg = 'Value of dt from options file %.2f does not match dt from data %2f'%(self.dt, tr.stats.delta)
@@ -148,13 +152,22 @@ class RtMigrator(object):
             ista=self.sta_list.index(sta)
             # make dtype of data float if it is not already
             tr.data=tr.data.astype(np.float32)
+            t0=time.time()
             pp_data = self.obs_rt_list[ista].append(tr, gap_overlap_check = True)
+            t_append_proc += time.time() - t0
+
             # loop over points
             for ip in xrange(self.npts):
                 # do time shift and append
+                t0=time.time()
                 pp_data_tmp = pp_data.copy()
+                t_copy += time.time() - t0
                 pp_data_tmp.stats.starttime -= np.round(self.ttimes_matrix[ista,ip]/self.dt) * self.dt
+                t0=time.time()
                 self.point_rt_list[ip][ista].append(pp_data_tmp, gap_overlap_check = True)
+                t_append += time.time() - t0
+
+        print "In updateData : %.2f s in process and %.2f s in data copy and %.2f s in append and a total of %.2f s" % (t_append_proc, t_copy, t_append, time.time()-t0_update)
 
     def updateStacks(self):
 
