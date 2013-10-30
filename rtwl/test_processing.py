@@ -17,7 +17,7 @@ def suite():
     suite.addTest(RtTests('test_rt_dx2'))
     suite.addTest(RtTests('test_rt_kurtosis'))
     suite.addTest(RtTests('test_sw_kurtosis'))
-    suite.addTest(RtTests('test_rt_kurtosis_dec'))
+    #suite.addTest(RtTests('test_rt_kurtosis_dec'))
     suite.addTest(RtTests('test_rt_neg_to_zero'))
     suite.addTest(RtTests('test_rt_kurt_grad'))
     suite.addTest(RtTests('test_rt_gaussian_filter'))
@@ -382,7 +382,7 @@ class RtTests(unittest.TestCase):
 
 
 
-@unittest.skip('Skipping filter tests')
+#@unittest.skip('Skipping filter tests')
 class FilterTests(unittest.TestCase):
 
     def setUp(self):
@@ -395,9 +395,12 @@ class FilterTests(unittest.TestCase):
         self.traces = self.data_trace / 3
 
     def test_bp_filterbank(self):
+        from obspy.signal.freqattributes import cfrequency
+
         st=Stream()
         fst=Stream()
         data_trace=self.data_trace.copy()
+        dt=data_trace.stats.delta
         data_trace.data=np.zeros(400)
         data_trace.data[200]=1*2*np.pi
         freqmin=1.0
@@ -406,28 +409,42 @@ class FilterTests(unittest.TestCase):
         n_bank=5
         for i in xrange(n_bank):
             dtrace=data_trace.copy()
-            dtrace.filter('bandpass',freqmin=freqmin+i*freq_step, \
-                    freqmax=freqmax+i*freq_step, zerophase=True)
+            fr_min=freqmin+i*freq_step
+            fr_max=freqmax+i*freq_step
+            dtrace.filter('bandpass',freqmin=fr_min, freqmax=fr_max, zerophase=True)
             st.append(dtrace)
             ftrace=self.data_trace.copy()
-            ftrace.data=np.convolve(ftrace.data,dtrace.data,'same')
+            ftrace.data=np.real(np.convolve(ftrace.data,dtrace.data,'same'))
+            cf=cfrequency(ftrace.data,1/dt,0,0)
+            self.assertTrue(cf > fr_min and cf < fr_max)
             #ftrace.plot()
 
 
 
     def test_gaussian_filter(self):
         from am_signal import gaussian_filter
+        from obspy.signal.freqattributes import cfrequency
         import matplotlib.pyplot as plt
 
-        gauss1, t=gaussian_filter(1.0, 1.0, 0.01)
-        gauss5, t=gaussian_filter(1.0, 5.0, 0.01)
+        dt=0.01
+        width=1.0
 
-        self.assertAlmostEquals(t[np.argmax(gauss1)],0)
+        gauss1, t1=gaussian_filter(width, 1.0, dt)
+        gauss5, t5=gaussian_filter(width, 5.0, dt)
 
-        data_trace1=self.data_trace.copy()
+        npts1=len(gauss1)
+        npts5=len(gauss5)
+        self.assertEquals(npts1,npts5)
+        self.assertAlmostEquals(t1,t5)
+
+        self.assertAlmostEquals(np.argmax(gauss1),t1/dt)
+        self.assertAlmostEquals(np.argmax(gauss5),t5/dt)
+
         data_trace5=self.data_trace.copy()
-        data_trace1.data=np.convolve(data_trace1.data,gauss1,'same')
-        data_trace5.data=np.convolve(data_trace5.data,gauss5,'same')
+        data_trace5.data=np.real(np.convolve(data_trace5.data,gauss5,'same'))
+
+        cf5=cfrequency(data_trace5.data,1/dt,0,0)
+        self.assertAlmostEquals(cf5,5.0,0)
 
 if __name__ == '__main__':
 
