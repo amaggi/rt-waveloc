@@ -1,4 +1,4 @@
-import os, glob, logging
+import os, logging
 
 class RtWavelocOptions(object):
     """
@@ -111,6 +111,12 @@ class RtWavelocOptions(object):
             return True
         else:
             return False
+            
+    def _getIsOffline_(self):
+        if self.opdict.has_key('offline') and self.opdict['offline'] == True :
+            return True
+        else:
+            return False
 
     lib_dir = property(_getLibDir_)
     out_dir = property(_getOutDir_)
@@ -121,6 +127,7 @@ class RtWavelocOptions(object):
     grid_glob = property(_getGridGlob_)
     gauss_filter = property(_getGaussFilter_)
     is_syn = property(_getIsSyn_)
+    run_offline=property(_getIsOffline_)
 
 
     def verifyDirectories(self):
