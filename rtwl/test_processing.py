@@ -1,9 +1,15 @@
-import unittest, os, glob
+import unittest
 import numpy as np
 import am_rt_signal
 from numpy.testing import assert_array_almost_equal
 from obspy.realtime import RtTrace 
 from obspy import read, Stream
+try:
+    from waveloc import rec_kurtosis
+    waveloc_installed=True
+except ImportError:
+    waveloc_installed=False
+    
 
 
 def suite():
@@ -87,8 +93,9 @@ class RtTests(unittest.TestCase):
 
 
     # skip this if not on a machine with a recent waveloc installed
+    @unittest.skipIf(not waveloc_installed,
+    "Skipping as waveloc is not installed")
     def test_rt_kurtosis(self):
-        from waveloc.filters import rec_kurtosis
         win=3.0
         data_trace = self.data_trace.copy()
 

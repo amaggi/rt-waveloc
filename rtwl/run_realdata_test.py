@@ -24,6 +24,7 @@ n_test=500
 
 # set up options
 wo = RtWavelocOptions()
+wo.opdict['base_path'] = 'test_data'
 wo.opdict['outdir'] = 'RealDataTest'
 wo.opdict['datadir'] = 'RealDataTest'
 wo.opdict['data_glob'] = 'YA*MSEED'

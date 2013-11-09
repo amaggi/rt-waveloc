@@ -1,4 +1,4 @@
-import os, glob, logging
+import os, logging
 
 class RtWavelocOptions(object):
     """
@@ -13,13 +13,13 @@ class RtWavelocOptions(object):
         Verifies that the base_path option is correctly set.
         """
         if not self.opdict.has_key('base_path'):
-            logging.info('No base_path set in options, getting base_path \
-                    from $RTWAVELOC_PATH')
-            base_path=os.getenv('RTWAVELOC_PATH')
-            if not os.path.isdir(base_path):
-                msg="Environment variable RTWAVELOC_PATH not set correctly."
-                raise ValueError(msg)
-            self.opdict['base_path'] = base_path
+            msg='base_path option not set'
+            raise ValueError(msg)
+        base_path = self.opdict['base_path']
+        if not os.path.isdir(base_path):
+            msg="Directory %s does not exist"%base_path
+            raise IOError(msg)
+            
 
     def _verifyLibDir(self):
         """
@@ -111,6 +111,12 @@ class RtWavelocOptions(object):
             return True
         else:
             return False
+            
+    def _getIsOffline_(self):
+        if self.opdict.has_key('offline') and self.opdict['offline'] == True :
+            return True
+        else:
+            return False
 
     lib_dir = property(_getLibDir_)
     out_dir = property(_getOutDir_)
@@ -121,6 +127,7 @@ class RtWavelocOptions(object):
     grid_glob = property(_getGridGlob_)
     gauss_filter = property(_getGaussFilter_)
     is_syn = property(_getIsSyn_)
+    run_offline=property(_getIsOffline_)
 
 
     def verifyDirectories(self):
