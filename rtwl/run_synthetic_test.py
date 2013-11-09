@@ -9,6 +9,7 @@ n_test=500
 
 # set up options
 wo = RtWavelocOptions()
+wo.opdict['base_path'] = 'test_data'
 wo.opdict['outdir'] = 'SynTest'
 wo.opdict['time_grid'] = 'Slow_len.100m.P'
 wo.opdict['max_length'] = 120

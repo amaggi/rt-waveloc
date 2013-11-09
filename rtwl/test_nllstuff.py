@@ -43,8 +43,7 @@ class NLLTests(unittest.TestCase):
 
   def test_NllReadHdr(self):
 
-    base_path=os.getenv('WAVELOC_PATH')
-    nll_hdr_file=os.path.join(base_path,'test_data','test_grid.search.geo.hdr')
+    nll_hdr_file=os.path.join('test_data','test_grid.search.geo.hdr')
     info=read_hdr_file(nll_hdr_file)
     self.assertEqual(info['nx'],51)
     self.assertEqual(info['y_orig'],-10.)
@@ -55,8 +54,8 @@ class NLLTests(unittest.TestCase):
     self.assertAlmostEqual(info['map_rot'],0.)
 
   def test_ReadStations(self):
-    base_path=os.getenv('WAVELOC_PATH')
-    stations_file=os.path.join(base_path,'test_data','coord_stations_test')
+
+    stations_file=os.path.join('test_data','coord_stations_test')
     stations=read_stations_file(stations_file)
     self.assertTrue(stations.has_key('RVL'))
     self.assertAlmostEqual(stations['SNE']['x'],366.958)

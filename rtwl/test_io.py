@@ -12,6 +12,7 @@ class IoTests(unittest.TestCase):
     def setUp(self):
         # set up expected waveloc options
         self.wo = RtWavelocOptions()
+        self.wo.opdict['base_path'] = 'test_data'
         self.wo.opdict['outdir'] = 'RealDataTest'
         self.wo.opdict['datadir'] = 'RealDataTest'
         self.wo.opdict['data_glob'] = 'YA*MSEED'

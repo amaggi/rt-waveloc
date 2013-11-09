@@ -148,8 +148,7 @@ class H5SingleGridTests(unittest.TestCase):
   def test_NllRead(self):
     from array import array
 
-    base_path=os.getenv('WAVELOC_PATH')
-    nll_name=os.path.join(base_path,'test_data','test.time')
+    nll_name=os.path.join('test_data','test.time')
     nll_hdr_file="%s.hdr"%nll_name 
     nll_buf_file="%s.buf"%nll_name 
 
@@ -180,8 +179,8 @@ class H5SingleGridTests(unittest.TestCase):
     os.remove(filename)
 
   def test_nll2hdf5(self):
-    base_path=os.getenv('WAVELOC_PATH')
-    nll_name=os.path.join(base_path,'test_data','test.time')
+    
+    nll_name=os.path.join('test_data','test.time')
     h5_name="%s.hdf5"%nll_name
     
     if os.path.isfile(h5_name) : os.remove(h5_name)

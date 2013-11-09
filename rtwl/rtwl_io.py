@@ -39,7 +39,7 @@ def _verifyParameters(p):
     logical_names=['syn','offline']
     
     # names of string parameters
-    string_names=['outdir', 'datadir', 'data_glob', 'time_grid']
+    string_names=['base_path', 'outdir', 'datadir', 'data_glob', 'time_grid']
    
     # names of floating point parameters
     float_names=['max_length','safety_margin','filt_f0','filt_sigma','kwin']

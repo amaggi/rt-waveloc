@@ -13,13 +13,13 @@ class RtWavelocOptions(object):
         Verifies that the base_path option is correctly set.
         """
         if not self.opdict.has_key('base_path'):
-            logging.info('No base_path set in options, getting base_path \
-                    from $RTWAVELOC_PATH')
-            base_path=os.getenv('RTWAVELOC_PATH')
-            if not os.path.isdir(base_path):
-                msg="Environment variable RTWAVELOC_PATH not set correctly."
-                raise ValueError(msg)
-            self.opdict['base_path'] = base_path
+            msg='base_path option not set'
+            raise ValueError(msg)
+        base_path = self.opdict['base_path']
+        if not os.path.isdir(base_path):
+            msg="Directory %s does not exist"%base_path
+            raise IOError(msg)
+            
 
     def _verifyLibDir(self):
         """

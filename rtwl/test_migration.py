@@ -1,12 +1,12 @@
-import unittest, os, glob, h5py
+import unittest
 import numpy as np
 import am_rt_signal 
-from obspy.core import Trace, UTCDateTime
-from obspy.realtime import RtTrace
+
+
 from options import RtWavelocOptions
-from hdf5_grids import H5SingleGrid, interpolateTimeGrid
+
 from migration import RtMigrator
-from plotting import plotMaxXYZ
+
 from synthetics import make_synthetic_data, generate_random_test_points
 
 def suite():
@@ -23,6 +23,7 @@ class SyntheticMigrationTests(unittest.TestCase):
         rt_dict['convolve']=(am_rt_signal.convolve,1)
         
         self.wo = RtWavelocOptions()
+        self.wo.opdict['base_path'] = 'test_data'
         self.wo.opdict['outdir'] = 'Test'
         self.wo.opdict['time_grid'] = 'Slow_len.100m.P'
         self.wo.opdict['max_length'] = 120
@@ -30,7 +31,7 @@ class SyntheticMigrationTests(unittest.TestCase):
         self.wo.opdict['dt'] = 0.01
         self.wo.opdict['syn'] = True
 
-#        self.wo.verifyDirectories()
+        self.wo.verifyDirectories()
 
         # make synthetic data
         self.obs_list, self.ot, (x0,y0,z0) = make_synthetic_data(self.wo)
@@ -84,10 +85,10 @@ class SyntheticMigrationTests(unittest.TestCase):
         #migrator.max_out.plot()
         st=migrator.max_out.stats.starttime+45
         ed=migrator.max_out.stats.starttime+55
-        max_out=migrator.max_out.slice(st,ed)
-        x_out=migrator.x_out.slice(st,ed)
-        y_out=migrator.y_out.slice(st,ed)
-        z_out=migrator.z_out.slice(st,ed)
+        #max_out=migrator.max_out.slice(st,ed)
+        #x_out=migrator.x_out.slice(st,ed)
+        #y_out=migrator.y_out.slice(st,ed)
+        #z_out=migrator.z_out.slice(st,ed)
         #plotMaxXYZ(max_out, x_out, y_out, z_out, 'test_out.png')
         max_trace=migrator.max_out.data
         tmax=np.argmax(max_trace)*self.dt
