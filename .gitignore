@@ -2,6 +2,7 @@
 /data/
 /out/
 /lib/
+/rtwl/test_data/out/
 /sphinx/_*
 *.pyc
 *.swp
