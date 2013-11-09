@@ -186,6 +186,7 @@ class H5SingleGridTests(unittest.TestCase):
     if os.path.isfile(h5_name) : os.remove(h5_name)
     nll2hdf5(nll_name,h5_name)
     self.assertTrue(os.path.isfile(h5_name))
+    os.remove(h5_name)
 
   def test_interpolation_ones(self):
 
