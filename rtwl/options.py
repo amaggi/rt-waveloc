@@ -117,6 +117,10 @@ class RtWavelocOptions(object):
             return True
         else:
             return False
+            
+    def _getStaList_(self):
+        return self.opdict['sta_list'].split(',')
+        
 
     lib_dir = property(_getLibDir_)
     out_dir = property(_getOutDir_)
@@ -128,6 +132,7 @@ class RtWavelocOptions(object):
     gauss_filter = property(_getGaussFilter_)
     is_syn = property(_getIsSyn_)
     run_offline=property(_getIsOffline_)
+    sta_list=property(_getStaList_)
 
 
     def verifyDirectories(self):

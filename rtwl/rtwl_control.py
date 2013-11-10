@@ -1,46 +1,51 @@
-import optparse
 import logging
 import pika
+import time
 from cPickle import dumps, loads
-from options import RtWavelocOptions
-from rtwl_io import readConfig
+from rtwl_io import rtwlGetConfig, rtwlParseCommandLine
 
-def rtwlStart():
-    """
-    Starts rtwl. Configuration is read from 'rtwl.config' file.
-    """
-      
-    config_file='rtwl.config'
-    
-    # read options into waveloc options objet
-    wo=RtWavelocOptions()
-    wo.opdict=readConfig(config_file)
-    
+def _setupRabbitMQ():
     # set up rabbitmq
-    connection = pika.BlockingConnection(pika.ConnectionParameters(
+    connection = pika.BlockingConnection(
+                        pika.ConnectionParameters(
                         host='localhost'))
     channel = connection.channel()
-
-    channel.exchange_declare(exchange='raw_data',
-                         type='direct')
     
+    # set up exchanges for data and info
+    channel.exchange_declare(exchange='raw_data',type='direct')
+    channel.exchange_declare(exchange='info',    type='fanout')
+    
+    return connection, channel   
+
+def rtwlStop(wo):
+    connection, channel = _setupRabbitMQ()
+    sendPoisonPills(channel,wo)
+    time.sleep(4)
+    connection.close()
+    
+def rtwlStart(wo):
+    """
+    Starts rtwl.
+    """
+    connection, channel = _setupRabbitMQ()
+
     if wo.run_offline:
         # Run in offline mode
-        print "Starting rtwl in offline mode"
+        logging.log(logging.INFO," [C] Starting rtwl in offline mode")
+
         import glob,os
         from obspy.core import read
         
         # read data
         fnames=glob.glob(os.path.join(wo.data_dir, wo.opdict['data_glob']))
         obs_list=[]
+        sta_list=[]
         for name in fnames:
             st=read(name)
+            sta_list.append(st[0].stats.station)
             obs_list.append(st[0])
-        nsta=len(obs_list)
+        nsta=len(sta_list)
     
-        # use data to set dt in waveloc options
-        dt=obs_list[0].stats.delta
-        wo.opdict['dt'] = dt
 
         # split data files to simulate packets of real-time data
         obs_split=[]
@@ -62,33 +67,45 @@ def rtwlStart():
                             properties=pika.BasicProperties(delivery_mode=2,)
                             )
                 tr_test=loads(message)
-                print " [x] Sent %r:%r" % (sta, "New data (%d) for station %s"
-                                                %(itr,tr_test.stats.station))
-        
-    
+                logging.log(logging.INFO,
+                            " [C] Sent %r:%r" % 
+                            (sta, "New data (%d) for station %s"
+                            %(itr,tr_test.stats.station)))
+
     else :
         # Run in true real-time mode
         raise NotImplementedError()
-    
-    connection.close()
-    
+ 
+def sendPoisonPills(channel,wo):
+    channel.basic_publish(exchange='info',
+                            routing_key='',
+                            body='STOP',
+                            )
+    for sta in wo.sta_list:
+        channel.basic_publish(exchange='raw_data',
+                            routing_key=sta,
+                            body='STOP',
+                            )
+    logging.log(logging.INFO," [C] Sent poison pill")
+      
 if __name__=='__main__':
 
+    # read config file
+    wo=rtwlGetConfig('rtwl.config')
+    
     # parse command line
-    p=optparse.OptionParser()
-
-    p.add_option('--start',action='store_true',help="start rtwl")
-    p.add_option('--debug',action='store_true',help="turn on debugging output")
-
-    (options,arguments)=p.parse_args()
+    options=rtwlParseCommandLine()
 
     if options.debug:
         logging.basicConfig(level=logging.DEBUG, format='%(levelname)s : %(asctime)s : %(message)s')
     else:
         logging.basicConfig(level=logging.INFO, format='%(levelname)s : %(asctime)s : %(message)s')
+    
 
-   
+    if options.start:          
+        rtwlStart(wo) # start 
+            
+    if options.stop:
+        rtwlStop(wo) # stop
 
-    if options.start:
-            rtwlStart() # start process
             

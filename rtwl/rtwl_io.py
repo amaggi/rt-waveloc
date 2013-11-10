@@ -1,4 +1,6 @@
 import numpy as np
+import optparse
+from options import RtWavelocOptions
 
 """
 IO routines for rtwl
@@ -39,10 +41,12 @@ def _verifyParameters(p):
     logical_names=['syn','offline']
     
     # names of string parameters
-    string_names=['base_path', 'outdir', 'datadir', 'data_glob', 'time_grid']
+    string_names=['base_path', 'outdir', 'datadir', 'data_glob', 'time_grid',
+                    'sta_list']
    
     # names of floating point parameters
-    float_names=['max_length','safety_margin','filt_f0','filt_sigma','kwin']
+    float_names=['max_length','safety_margin','filt_f0','filt_sigma',
+                'kwin','dt']
     
     # cleanup types in dictionary
     try:
@@ -66,3 +70,19 @@ def _verifyParameters(p):
             val=p[name]
     except KeyError:
         raise UserWarning('Missing parameter %s in PAR_FILE'%name)
+        
+def rtwlGetConfig(config_file):
+    wo=RtWavelocOptions()
+    wo.opdict=readConfig(config_file)
+    return wo
+    
+def rtwlParseCommandLine():
+    # parse command line
+    p=optparse.OptionParser()
+
+    p.add_option('--start',action='store_true',default=False, help="start rtwl")
+    p.add_option('--stop',action='store_true',default=False, help="stop rtwl")
+    p.add_option('--debug',action='store_true',default=False, help="turn on debugging output")
+
+    (options,arguments)=p.parse_args()
+    return options
