@@ -87,6 +87,7 @@ class rtwlStaProcessor(object):
         if body=='STOP':
             # acknowledge
             ch.basic_ack(delivery_tag = method.delivery_tag)
+            self.channel.stop_consuming()
             # send on to next exchange
             self.channel.basic_publish(exchange='proc_data',
                             routing_key=self.sta,
