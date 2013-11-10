@@ -3,6 +3,45 @@ import multiprocessing
 from cPickle import dumps, loads
 from rtwl_io import rtwlGetConfig, rtwlParseCommandLine
 
+class rtwlStaProcessor(object):
+    def __init__(self,wo,sta) :
+        self.wo = wo
+        self.sta = sta
+        self.connection, self.channel = _setupRabbitMQ()
+        self.p = multiprocessing.Process(name='proc_%s'%sta,
+                                       target=self._do_proc)
+        self.p.start()
+        
+    def _do_proc(self):
+        proc_name = multiprocessing.current_process().name
+    
+        # bind to the raw data 
+        result = self.channel.queue_declare(exclusive=True)
+        queue_name = result.method.queue
+        print proc_name, queue_name
+        self.channel.queue_bind(exchange='raw_data', 
+                                    queue=queue_name, 
+                                    routing_key=self.sta)
+        consumer_tag=self.channel.basic_consume(
+                                    self._callback_proc,
+                                    queue=queue_name)
+        print proc_name, consumer_tag
+        self.channel.basic_qos(prefetch_count=1)
+        try:
+            self.channel.start_consuming()
+        except UserWarning:
+            logging.log(logging.INFO,"Received UserWarning from %s"%proc_name)       
+            self.channel.basic_cancel(consumer_tag)
+
+    def _callback_proc(self, ch, method, properties, body):
+        if body=='STOP':
+            ch.basic_ack(delivery_tag = method.delivery_tag)
+            raise UserWarning
+        else:
+            tr=loads(body)
+            print tr.stats.station
+            ch.basic_ack(delivery_tag = method.delivery_tag)
+        
 def _setupRabbitMQ():
     # set up rabbitmq
     connection = pika.BlockingConnection(
@@ -35,9 +74,7 @@ def rtwlStart(wo):
     # set up processes to process data
     p_list=[]
     for sta in wo.sta_list:
-        p = multiprocessing.Process(name='proc_%s'%sta,
-                                       target=do_proc, args=(wo,sta))
-        p.start()
+        p=rtwlStaProcessor(wo,sta)
         p_list.append(p)
     
 def receive_info():
@@ -69,34 +106,7 @@ def callback_info(ch, method, properties, body):
         logging.log(logging.INFO, "rtwl_staproc received poison pill")
         raise UserWarning
 
-def do_proc(wo,sta):
-    proc_name = multiprocessing.current_process().name
-    connection, channel = _setupRabbitMQ()
 
-    # bind to the info fanout
-    result = channel.queue_declare(exclusive=True)
-    queue_name = result.method.queue
-    print proc_name, queue_name
-    channel.queue_bind(exchange='raw_data', 
-        queue=queue_name, 
-        routing_key=sta)
-    consumer_tag=channel.basic_consume(callback_proc,queue=queue_name)
-    print proc_name, consumer_tag
-    channel.basic_qos(prefetch_count=1)
-    try:
-        channel.start_consuming()
-    except UserWarning:
-        logging.log(logging.INFO,"Received UserWarning from %s"%proc_name)       
-        channel.basic_cancel(consumer_tag)
-
-def callback_proc(ch, method, properties, body):
-    if body=='STOP':
-        ch.basic_ack(delivery_tag = method.delivery_tag)
-        raise UserWarning
-    else:
-        tr=loads(body)
-        print tr.stats.station
-        ch.basic_ack(delivery_tag = method.delivery_tag)
     
 if __name__=='__main__':
 
