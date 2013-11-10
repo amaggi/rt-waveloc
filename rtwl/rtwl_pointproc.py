@@ -39,50 +39,58 @@ class rtwlPointStacker(object):
         (self.nsta,self.npts) = self.ttimes_matrix.shape
         
         # queue setup
-        self.connection, self.channel = _setupRabbitMQ()
+        #self.connection, self.channel = _setupRabbitMQ()
 
-        # independent process for filling up points exchange
-        self.p = multiprocessing.Process(target=self._do_distribute)
-        self.p.start()  
+        # nsta ndependent process for filling up points exchange
+        for sta in self.sta_list :
+            p = multiprocessing.Process(
+                            name='distrib_%s'%sta,
+                            target=self._do_distribute, 
+                            args=(sta,)
+                            )
+            p.start()  
               
         # create a processor for each point
 #        for ip in xrange(self.npts):
         for ip in xrange(5):
             rtwlPointProcessor(wo,self.sta_list, ip)
 
-    def _do_distribute(self):
+    def _do_distribute(self,sta):
         proc_name = multiprocessing.current_process().name
+        
+        # queue setup
+        connection, channel = _setupRabbitMQ() 
     
         # create one queue
-        result = self.channel.queue_declare(exclusive=True)
+        result = channel.queue_declare(exclusive=True)
         queue_name = result.method.queue
 
         # bind to all stations        
-        self.channel.queue_bind(exchange='proc_data', 
+        channel.queue_bind(exchange='proc_data', 
                                     queue=queue_name, 
-                                    routing_key='#')
+                                    routing_key=sta)
                                     
-        consumer_tag=self.channel.basic_consume(
+        consumer_tag=channel.basic_consume(
                                     self._callback_distribute,
                                     queue=queue_name,
                                     #no_ack=True
                                     )
         
-        self.channel.basic_qos(prefetch_count=1)
+        channel.basic_qos(prefetch_count=1)
         try:
-            self.channel.start_consuming()
+            channel.start_consuming()
         except UserWarning:
             logging.log(logging.INFO,"Received UserWarning from %s"%proc_name)
-            self.channel.basic_cancel(consumer_tag)
+            channel.basic_cancel(consumer_tag)
 
     def _callback_distribute(self, ch, method, properties, body):
         if body=='STOP' :
             sta=method.routing_key
             ch.basic_ack(delivery_tag = method.delivery_tag)
-            self.channel.stop_consuming()
+            ch.stop_consuming()
             # pass on to next exchange
             for ip in xrange(self.npts):
-                self.channel.basic_publish(exchange='points',
+                ch.basic_publish(exchange='points',
                             routing_key='%s.%d'%(sta,ip),
                             body='STOP',
                             properties=pika.BasicProperties(delivery_mode=2,)
@@ -96,7 +104,7 @@ class rtwlPointStacker(object):
             for ip in xrange(self.npts):
                 # do shift
                 tr.stats.starttime -= np.round(self.ttimes_matrix[ista][ip]/self.dt) * self.dt
-                self.channel.basic_publish(exchange='points',
+                ch.basic_publish(exchange='points',
                             routing_key='%s.%d'%(sta,ip),
                             body=dumps(tr,-1),
                             properties=pika.BasicProperties(delivery_mode=2,)
