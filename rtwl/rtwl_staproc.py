@@ -29,7 +29,7 @@ class rtwlStaProcessor(object):
         self.dt = self.wo.opdict['dt']
         
         # real-time stream for processing
-        self.rtt = RtTrace(max_length=self.max_length+self.safety_margin)
+        self.rtt = RtTrace(max_length=self.max_length)
         self._register_preprocessing()
         
         # queue setup
@@ -85,7 +85,14 @@ class rtwlStaProcessor(object):
 
     def _callback_proc(self, ch, method, properties, body):
         if body=='STOP':
+            # acknowledge
             ch.basic_ack(delivery_tag = method.delivery_tag)
+            # send on to next exchange
+            self.channel.basic_publish(exchange='proc_data',
+                            routing_key=self.sta,
+                            body=body,
+                            properties=pika.BasicProperties(delivery_mode=2,)
+                            )
             raise UserWarning
         else:
             # unpack data packet
