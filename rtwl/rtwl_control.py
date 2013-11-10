@@ -12,8 +12,8 @@ def _setupRabbitMQ():
     channel = connection.channel()
     
     # set up exchanges for data and info
-    channel.exchange_declare(exchange='raw_data',type='direct')
-    channel.exchange_declare(exchange='info',    type='fanout')
+    channel.exchange_declare(exchange='raw_data',exchange_type='direct')
+    channel.exchange_declare(exchange='info',    exchange_type='fanout')
     
     return connection, channel   
 
