@@ -74,7 +74,9 @@ class rtwlStaProcessor(object):
                                     routing_key=self.sta)
         consumer_tag=self.channel.basic_consume(
                                     self._callback_proc,
-                                    queue=queue_name)
+                                    queue=queue_name,
+                                    #no_ack=True
+                                    )
         #print proc_name, consumer_tag
         self.channel.basic_qos(prefetch_count=1)
         try:
@@ -132,9 +134,9 @@ def _setupRabbitMQ():
     channel = connection.channel()
     
     # set up exchanges for data and info
-    channel.exchange_declare(exchange='raw_data',exchange_type='direct')
+    channel.exchange_declare(exchange='raw_data',exchange_type='topic')
     channel.exchange_declare(exchange='info',    exchange_type='fanout')
-    channel.exchange_declare(exchange='proc_data',exchange_type='direct')
+    channel.exchange_declare(exchange='proc_data',exchange_type='topic')
     
     return connection, channel   
  
@@ -172,7 +174,8 @@ def receive_info():
     
     consumer_tag=channel.basic_consume(callback_info,
                       queue=info_queue_name,
-                      no_ack=True)
+                      #no_ack=True
+                      )
     
     try:
         channel.start_consuming()

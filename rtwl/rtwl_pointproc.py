@@ -47,7 +47,8 @@ class rtwlPointStacker(object):
               
         # create a processor for each point
 #        for ip in xrange(self.npts):
-        rtwlPointProcessor(wo,self.sta_list, ip)
+        for ip in xrange(5):
+            rtwlPointProcessor(wo,self.sta_list, ip)
 
     def _do_distribute(self):
         proc_name = multiprocessing.current_process().name
@@ -56,15 +57,15 @@ class rtwlPointStacker(object):
         result = self.channel.queue_declare(exclusive=True)
         queue_name = result.method.queue
 
-        # bind to all stations
-        for sta in self.sta_list:            
-            self.channel.queue_bind(exchange='proc_data', 
+        # bind to all stations        
+        self.channel.queue_bind(exchange='proc_data', 
                                     queue=queue_name, 
-                                    routing_key=sta)
+                                    routing_key='#')
                                     
         consumer_tag=self.channel.basic_consume(
                                     self._callback_distribute,
                                     queue=queue_name,
+                                    #no_ack=True
                                     )
         
         self.channel.basic_qos(prefetch_count=1)
@@ -76,18 +77,19 @@ class rtwlPointStacker(object):
 
     def _callback_distribute(self, ch, method, properties, body):
         if body=='STOP' :
+            sta=method.routing_key
             ch.basic_ack(delivery_tag = method.delivery_tag)
             self.channel.stop_consuming()
             # pass on to next exchange
             for ip in xrange(self.npts):
-                for sta in self.sta_list:
-                    self.channel.basic_publish(exchange='points',
+                self.channel.basic_publish(exchange='points',
                             routing_key='%s.%d'%(sta,ip),
-                            body='STOP'
+                            body='STOP',
+                            properties=pika.BasicProperties(delivery_mode=2,)
                             )
             raise UserWarning
         else:
-            # unpack data packet to get station name
+            # unpack data packet 
             tr=loads(body)
             sta=method.routing_key
             ista=self.sta_list.index(sta)
@@ -96,8 +98,12 @@ class rtwlPointStacker(object):
                 tr.stats.starttime -= np.round(self.ttimes_matrix[ista][ip]/self.dt) * self.dt
                 self.channel.basic_publish(exchange='points',
                             routing_key='%s.%d'%(sta,ip),
-                            body=dumps(tr,-1)
+                            body=dumps(tr,-1),
+                            properties=pika.BasicProperties(delivery_mode=2,)
                             )
+            logging.log(logging.INFO,
+                            " [D] Sent %r" % 
+                            ("Distributed data for station %s"%sta))
             # acknowledge all ok            
             ch.basic_ack(delivery_tag = method.delivery_tag)
                 
@@ -113,7 +119,7 @@ class rtwlPointProcessor(object):
         self.max_length = self.wo.opdict['max_length']
         self.safety_margin = self.wo.opdict['safety_margin']
         self.dt = self.wo.opdict['dt']
-        self.last_common_end_stacks=UTCDateTime(1970,1,1)
+        self.last_common_end_stack=UTCDateTime(1970,1,1)
         
         # Traveltimes and rt streams must be indexed by station name
         self.pt_sta_dict = {}
@@ -147,6 +153,7 @@ class rtwlPointProcessor(object):
         consumer_tag=self.channel.basic_consume(
                                     self._callback_proc,
                                     queue=queue_name,
+                                    #no_ack=True
                                     )
         
         self.channel.basic_qos(prefetch_count=1)
@@ -239,10 +246,10 @@ def _setupRabbitMQ():
     channel = connection.channel()
     
     # set up exchanges for data and info
-    channel.exchange_declare(exchange='stacks',exchange_type='direct')
+    channel.exchange_declare(exchange='stacks',exchange_type='topic')
     channel.exchange_declare(exchange='points',exchange_type='topic')
     channel.exchange_declare(exchange='info',    exchange_type='fanout')
-    channel.exchange_declare(exchange='proc_data',exchange_type='direct')
+    channel.exchange_declare(exchange='proc_data',exchange_type='topic')
     
     return connection, channel   
  
@@ -279,7 +286,8 @@ def receive_info():
     
     consumer_tag=channel.basic_consume(callback_info,
                       queue=info_queue_name,
-                      no_ack=True)
+                      #no_ack=True
+                      )
     
     try:
         channel.start_consuming()

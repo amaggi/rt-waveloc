@@ -12,7 +12,7 @@ def _setupRabbitMQ():
     channel = connection.channel()
     
     # set up exchanges for data and info
-    channel.exchange_declare(exchange='raw_data',exchange_type='direct')
+    channel.exchange_declare(exchange='raw_data',exchange_type='topic')
     channel.exchange_declare(exchange='info',    exchange_type='fanout')
     
     return connection, channel   
@@ -86,11 +86,13 @@ def sendPoisonPills(channel,wo):
     channel.basic_publish(exchange='info',
                             routing_key='',
                             body='STOP',
+                            properties=pika.BasicProperties(delivery_mode=2,)
                             )
     for sta in wo.sta_list:
         channel.basic_publish(exchange='raw_data',
                             routing_key=sta,
                             body='STOP',
+                            properties=pika.BasicProperties(delivery_mode=2,)
                             )
     logging.log(logging.INFO," [C] Sent poison pill")
       
