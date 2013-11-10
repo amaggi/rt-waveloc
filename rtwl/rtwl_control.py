@@ -59,6 +59,12 @@ def rtwlStart(wo):
             for ista in xrange(nsta):
                 tr = obs_split[ista][itr]
                 sta=tr.stats.station
+                # sanity check for dt
+                if (wo.opdict['dt']!=tr.stats.delta):
+                    msg =\
+                    'Value of dt from config %.2f does not match dt from data %2f'\
+                    %(wo.opdict['dt'], tr.stats.delta)
+                    raise ValueError(msg)
                 # The message is just a pickled version of the trace
                 message=dumps(tr,-1)
                 channel.basic_publish(exchange='raw_data',
