@@ -28,7 +28,7 @@ def rtwlStart(wo):
         if wo.is_syn :
             obs_list, ot, (x0,y0,z0) = make_synthetic_data(wo)
             generate_random_test_points(wo,loc0=(x0,y0,z0))
-            time.sleep(1)
+            time.sleep(2)
         
         else:
             # read data

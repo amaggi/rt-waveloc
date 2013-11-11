@@ -2,7 +2,7 @@ import logging, pika,time, glob, h5py
 import multiprocessing
 from obspy.core import UTCDateTime, Trace
 from obspy.realtime import RtTrace
-from cPickle import dumps, loads
+from cPickle import dumps, loads, dump
 from rtwl_io import rtwlGetConfig, rtwlParseCommandLine, setupRabbitMQ
 
 import os
@@ -10,10 +10,11 @@ import numpy as np
 os.system('taskset -p 0xffff %d' % os.getpid())
 
 class rtwlPointStacker(object):
-    def __init__(self,wo):
+    def __init__(self,wo, do_dump=False):
     
+        self.do_dump = do_dump
         self.dt = wo.opdict['dt']
-        # initialize the travel-times        
+        # initialize the travel-times 
         ttimes_fnames=glob.glob(wo.ttimes_glob)
         
         # get basic lengths by reading the first file
@@ -40,8 +41,14 @@ class rtwlPointStacker(object):
         # stack the ttimes into a numpy array
         self.ttimes_matrix=np.vstack(ttimes_list)
         (self.nsta,self.npts) = self.ttimes_matrix.shape
+        
+        # if do_dump, then dump ttimes_matrix to file for debugging
+        if self.do_dump:
+            filename='pointproc_ttimes.dump'
+            f=open(filename,'w')
+            dump(self.ttimes_matrix,f,-1)
+            f.close()
 
-        #self.npts=70
         # nsta ndependent process for filling up points exchange
         for sta in self.sta_list :
             p = multiprocessing.Process(

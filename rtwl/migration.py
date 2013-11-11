@@ -65,6 +65,13 @@ class RtMigrator(object):
         # stack the ttimes into a numpy array
         self.ttimes_matrix=np.vstack(ttimes_list)
         (self.nsta,self.npts) = self.ttimes_matrix.shape
+        
+        # if do_dump, then dump ttimes_matrix to file for debugging
+        if self.do_dump:
+            filename='migrator_ttimes.dump'
+            f=open(filename,'w')
+            dump(self.ttimes_matrix,f,-1)
+            f.close()
 
         # initialize the RtTrace(s)
         ##########################
