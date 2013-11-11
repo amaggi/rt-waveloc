@@ -5,8 +5,6 @@ from migration import RtMigrator
 from plotting import plotMaxXYZ
 
 
-n_test=500
-
 # set up options
 wo = RtWavelocOptions()
 wo.opdict['base_path'] = 'test_data'
@@ -16,6 +14,7 @@ wo.opdict['max_length'] = 120
 wo.opdict['safety_margin'] = 20
 wo.opdict['dt'] = 0.01
 wo.opdict['syn'] = True
+wo.opdict['syn_npts'] = 50
 
 # make synthetic data
 obs_list, ot, (x0,y0,z0) = make_synthetic_data(wo)
@@ -30,8 +29,10 @@ for obs in obs_list:
     obs_split.append(split)
 
 # generate ttimes_files for test
-#generate_random_test_points(wo, n_test, (x0, y0, z0))
-generate_random_test_points(wo, n_test)
+generate_random_test_points(wo, 
+        (x0, y0, z0)
+        )
+
 
 tic=time.time()
 
@@ -67,10 +68,14 @@ for itr in xrange(ntr):
 #########################
 
 tac=time.time()
+n_test = wo.opdict['syn_npts']
+
 print "Time taken for two-minute 100Hz synthetic test on %d points : %.2f s"%(n_test, tac-tic)
 
-st=migrator.max_out.stats.starttime+45
-ed=migrator.max_out.stats.starttime+55
+#st=migrator.max_out.stats.starttime+45
+#ed=migrator.max_out.stats.starttime+55
+st=migrator.max_out.stats.starttime
+ed=migrator.max_out.stats.endtime
 max_out=migrator.max_out.slice(st,ed)
 x_out=migrator.x_out.slice(st,ed)
 y_out=migrator.y_out.slice(st,ed)

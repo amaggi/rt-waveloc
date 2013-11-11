@@ -13,13 +13,14 @@ class IoTests(unittest.TestCase):
         # set up expected waveloc options
         self.wo = RtWavelocOptions()
         self.wo.opdict['base_path'] = 'test_data'
-        self.wo.opdict['outdir'] = 'RealDataTest'
+        self.wo.opdict['outdir'] = 'SynTest'
         self.wo.opdict['datadir'] = 'RealDataTest'
         self.wo.opdict['data_glob'] = 'YA*MSEED'
         self.wo.opdict['time_grid'] = 'Slow_len.100m.P'
-        self.wo.opdict['max_length'] = 120
+        self.wo.opdict['max_length'] = 300
         self.wo.opdict['safety_margin'] = 20
-        self.wo.opdict['syn'] = False
+        self.wo.opdict['syn'] = True
+        self.wo.opdict['syn_npts'] = 50
         self.wo.opdict['filt_f0'] = 27.0
         self.wo.opdict['filt_sigma'] = 7.0
         self.wo.opdict['kwin'] = 3.0

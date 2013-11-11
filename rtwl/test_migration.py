@@ -30,6 +30,7 @@ class SyntheticMigrationTests(unittest.TestCase):
         self.wo.opdict['safety_margin'] = 20
         self.wo.opdict['dt'] = 0.01
         self.wo.opdict['syn'] = True
+        self.wo.opdict['syn_npts'] = 50
 
         self.wo.verifyDirectories()
 
@@ -46,8 +47,8 @@ class SyntheticMigrationTests(unittest.TestCase):
             self.obs_split.append(obs_split)
 
         # generate ttimes_files for test
-        n_test=150
-        generate_random_test_points(self.wo, n_test, (x0, y0, z0))
+        n_test=self.wo.opdict['syn_npts']
+        generate_random_test_points(self.wo, (x0, y0, z0))
 
     def test_rt_migration_true(self):
 

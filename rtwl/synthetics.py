@@ -50,11 +50,12 @@ def make_synthetic_data(waveloc_options):
 
     return obs_list, ot, (x,y,z)
 
-def generate_random_test_points(waveloc_options,npts,loc0=None):
+def generate_random_test_points(waveloc_options,loc0=None):
     """
     Generates ttimes files for npts random test points including x0, y0, z0.
     """
     wo = waveloc_options
+    npts = wo.opdict['syn_npts']
 
     # get grid extent from first time-grid
     time_grid_names = glob.glob(wo.grid_glob)
