@@ -36,6 +36,7 @@ class rtwlStaProcessor(object):
         
         
         # independent process (for parallel calculation)
+        self.lock=multiprocessing.Lock()
         for sta in self.sta_list:
             p = multiprocessing.Process(
                                         name='proc_%s'%sta,
@@ -91,7 +92,7 @@ class rtwlStaProcessor(object):
         try:
             channel.start_consuming()
         except UserWarning:
-            logging.log(logging.INFO,"Received UserWarning from %s"%proc_name)       
+            logging.log(logging.INFO,"Received STOP signal from %s"%proc_name)       
             channel.basic_cancel(consumer_tag)
 
     def _callback_proc(self, ch, method, properties, body):
@@ -187,7 +188,7 @@ def receive_info():
     try:
         channel.start_consuming()
     except UserWarning:
-        logging.log(logging.INFO,"Received UserWarning from %s"%proc_name)
+        logging.log(logging.INFO,"Received STOP signal from %s"%proc_name)
         
         channel.basic_cancel(consumer_tag)
     
