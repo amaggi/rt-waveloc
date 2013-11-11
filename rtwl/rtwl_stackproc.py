@@ -94,8 +94,8 @@ class rtwlStacker(object):
             
             # add shifted trace
             endtime=self.stack_dict[ip].stats.endtime
-            #logging.log(logging.INFO," [S] %d = %s Adding data with startime %s to endtime %s"
-            #    %(ip, tr.stats.station, tr.stats.starttime.isoformat(),endtime.isoformat()))
+            logging.log(logging.DEBUG," [S] %d = %s Adding data with startime %s to endtime %s"
+                %(ip, tr.stats.station, tr.stats.starttime.isoformat(),endtime.isoformat()))
             self.stack_dict[ip].append(tr, gap_overlap_check = True)
 
             # update stack if possible
@@ -118,6 +118,7 @@ class rtwlStacker(object):
         # get list of points for which the end-time is compatible
         # with the common_start time and the safety buffer
         ip_ok=[ip for ip in xrange(npts) if (self.stack_dict[ip].stats.endtime - common_start) > self.safety_margin]
+        logging.log(logging.DEBUG," [U] len(ip_ok) = %d < %d : %r"%(len(ip_ok),npts,ip_ok))
         
         # if all points are ok, then go ahead
         if len(ip_ok) == npts:

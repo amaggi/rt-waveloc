@@ -180,7 +180,7 @@ class rtwlPointProcessor(object):
         
         channel.basic_qos(prefetch_count=1)
         channel.start_consuming()
-        logging.log(logging.INFO,"Received UserWarning : %s"%proc_name)
+        logging.log(logging.INFO,"Received STOP signal : %s"%proc_name)
 
     def _callback_proc(self, ch, method, properties, body):
         if body=='STOP' :
