@@ -17,14 +17,20 @@ class SetupTests(unittest.TestCase):
 
 if __name__ == '__main__':
 
-  import test_io, test_processing, test_nllstuff, test_hdf5, test_migration 
+  import test_io
+  import test_processing
+  import test_nllstuff
+  import test_hdf5
+  import test_migration
+  import test_rtwl 
 
   suite_list=[suite(),
     test_io.suite(),
     test_processing.suite(),
     test_nllstuff.suite(),
     test_hdf5.suite(),
-    test_migration.suite(),
+    test_migration.suite(),    
+    test_rtwl.suite(),
     ]
 
   alltests=unittest.TestSuite(suite_list)
