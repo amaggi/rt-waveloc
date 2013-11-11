@@ -28,16 +28,18 @@ def rtwlStart(wo):
         if wo.is_syn :
             obs_list, ot, (x0,y0,z0) = make_synthetic_data(wo)
             generate_random_test_points(wo,loc0=(x0,y0,z0))
-
-        # read data
-        fnames=glob.glob(os.path.join(wo.data_dir, wo.opdict['data_glob']))
-        obs_list=[]
-        sta_list=[]
-        for name in fnames:
-            st=read(name)
-            sta_list.append(st[0].stats.station)
-            obs_list.append(st[0])
-        nsta=len(sta_list)
+        
+        else:
+            # read data
+            fnames=glob.glob(os.path.join(wo.data_dir, wo.opdict['data_glob']))
+            obs_list=[]
+            sta_list=[]
+            for name in fnames:
+                st=read(name)
+                sta_list.append(st[0].stats.station)
+                obs_list.append(st[0])
+            
+        nsta=len(obs_list)
     
 
         # split data files to simulate packets of real-time data

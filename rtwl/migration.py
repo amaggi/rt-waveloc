@@ -3,6 +3,7 @@ import numpy as np
 from obspy.core import Trace, UTCDateTime
 from obspy.realtime import RtTrace
 from am_signal import gaussian_filter
+from cPickle import dump
 
 class RtMigrator(object):
     """
@@ -34,11 +35,12 @@ class RtMigrator(object):
     filter_shift=0.0
 
 
-    def __init__(self,waveloc_options):
+    def __init__(self,waveloc_options, do_dump=False):
         """
         Initialize from a set of travel-times as hdf5 files
         """
         wo=waveloc_options
+        self.do_dump = do_dump
         # initialize the travel-times
         #############################
         ttimes_fnames=glob.glob(wo.ttimes_glob)
@@ -115,6 +117,7 @@ class RtMigrator(object):
         # if this is a synthetic
         if wo.is_syn:
             # do dummy processing only
+            self.filter_shift = 0.0
             for rtt in self.obs_rt_list:
                 rtt.registerRtProcess('scale', factor=1.0)
 
@@ -144,7 +147,7 @@ class RtMigrator(object):
         for tr in tr_list:
             if (self.dt!=tr.stats.delta):
                 msg = 'Value of dt from options file %.2f does not match dt from data %2f'%(self.dt, tr.stats.delta)
-                raise ValueError()
+                raise ValueError(msg)
             # pre-correct for filter_shift
             #tr.stats.starttime -= np.round(self.filter_shift/self.dt) * self.dt
             tr.stats.starttime -= self.filter_shift
@@ -155,6 +158,11 @@ class RtMigrator(object):
             t0=time.time()
             pp_data = self.obs_rt_list[ista].append(tr, gap_overlap_check = True)
             t_append_proc += time.time() - t0
+            if self.do_dump:
+                filename='update_data_%s.dump'%sta
+                f=open(filename,'w')
+                dump(self.obs_rt_list[ista],f,-1)
+                f.close()
 
             # loop over points
             for ip in xrange(self.npts):

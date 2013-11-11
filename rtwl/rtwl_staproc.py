@@ -3,7 +3,7 @@ import multiprocessing
 import am_rt_signal
 from obspy.realtime import RtTrace
 from am_signal import gaussian_filter
-from cPickle import dumps, loads
+from cPickle import dumps, loads, dump
 from rtwl_io import rtwlGetConfig, rtwlParseCommandLine, setupRabbitMQ
 
 import os
@@ -23,10 +23,11 @@ rt_dict['dx2']=(am_rt_signal.dx2,2)
 ###############
 
 class rtwlStaProcessor(object):
-    def __init__(self,wo) :
+    def __init__(self,wo, do_dump=False) :
         
         # basic parameters
         self.wo = wo
+        self.do_dump = do_dump
         self.sta_list = wo.sta_list
         self.max_length = self.wo.opdict['max_length']
         self.safety_margin = self.wo.opdict['safety_margin']
@@ -41,14 +42,20 @@ class rtwlStaProcessor(object):
         
         # independent process (for parallel calculation)
         self.lock=multiprocessing.Lock()
+        p_list=[]
         for sta in self.sta_list:
             p = multiprocessing.Process(
                                         name='proc_%s'%sta,
                                         target=self._do_proc,
                                         args=(sta,)
                                         )
+            p_list.append(p)
             p.start()
         
+        # once they are all started, wait for them to finish before exiting
+        for p in p_list:
+            p.join()
+                
     def _register_preprocessing(self):
         wo=self.wo
         
@@ -100,6 +107,7 @@ class rtwlStaProcessor(object):
 
     def _callback_proc(self, ch, method, properties, body):
         if body=='STOP':
+            sta = method.routing_key
             # acknowledge
             ch.basic_ack(delivery_tag = method.delivery_tag)
             # send on to next exchange
@@ -111,6 +119,8 @@ class rtwlStaProcessor(object):
             ch.stop_consuming()
             for tag in ch.consumer_tags:
                 ch.basic_cancel(tag)
+            
+                
         else:
             # unpack data packet
             sta=method.routing_key
@@ -124,8 +134,15 @@ class rtwlStaProcessor(object):
             
             # append trace from message to real-time trace
             # this automatically triggers the rt processing
-            pp_data = self.rtt[sta].append(tr, gap_overlap_check = True)
-            
+            with self.lock :
+                pp_data = self.rtt[sta].append(tr, gap_overlap_check = True)
+                # if requested, dump rtt trace
+                if self.do_dump:
+                    filename='staproc_%s.dump'%sta
+                    f=open(filename,'w')
+                    dump(self.rtt[sta],f,-1)
+                    f.close()
+                    
             # send the processed data on to the proc_data exchange
             message=dumps(pp_data,-1)
             ch.basic_publish(exchange='proc_data',
