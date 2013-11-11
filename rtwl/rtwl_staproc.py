@@ -1,11 +1,15 @@
 import logging, pika,time
 import multiprocessing
-import numpy as np
 import am_rt_signal
 from obspy.realtime import RtTrace
 from am_signal import gaussian_filter
 from cPickle import dumps, loads
-from rtwl_io import rtwlGetConfig, rtwlParseCommandLine
+from rtwl_io import rtwlGetConfig, rtwlParseCommandLine, setupRabbitMQ
+
+import os
+import numpy as np
+os.system('taskset -p 0xffff %d' % os.getpid())
+
 
 ###############
 # stuff that needs doing while I still have 
@@ -51,6 +55,7 @@ class rtwlStaProcessor(object):
         # if this is a synthetic
         if wo.is_syn:
             # do dummy processing only
+            self.filter_shift = 0.0
             for tr in self.rtt.values():
                 tr.registerRtProcess('scale', factor=1.0)
 
@@ -73,7 +78,7 @@ class rtwlStaProcessor(object):
         proc_name = multiprocessing.current_process().name
  
         #queue setup
-        connection, channel = _setupRabbitMQ()
+        connection, channel = setupRabbitMQ('STAPROC')
    
         # bind to the raw data 
         result = channel.queue_declare(exclusive=True)
@@ -137,22 +142,9 @@ class rtwlStaProcessor(object):
             # signal to the raw_data exchange that have finished with data
             ch.basic_ack(delivery_tag = method.delivery_tag)
         
-def _setupRabbitMQ():
-    # set up rabbitmq
-    connection = pika.BlockingConnection(
-                        pika.ConnectionParameters(
-                        host='localhost'))
-    channel = connection.channel()
-    
-    # set up exchanges for data and info
-    channel.exchange_declare(exchange='raw_data',exchange_type='topic')
-    channel.exchange_declare(exchange='info',    exchange_type='fanout')
-    channel.exchange_declare(exchange='proc_data',exchange_type='topic')
-    
-    return connection, channel   
  
 def rtwlStop(wo):
-    connection, channel = _setupRabbitMQ()
+    connection, channel = setupRabbitMQ('INFO')
     #sendPoisonPills(channel,wo)
     time.sleep(4)
     connection.close()
@@ -171,7 +163,7 @@ def rtwlStart(wo):
     
 def receive_info():
     proc_name = multiprocessing.current_process().name
-    connection, channel = _setupRabbitMQ()
+    connection, channel = setupRabbitMQ('INFO')
 
     # bind to the info fanout
     result = channel.queue_declare(exclusive=True)
@@ -210,10 +202,18 @@ if __name__=='__main__':
     options=rtwlParseCommandLine()
 
     if options.debug:
-        logging.basicConfig(level=logging.DEBUG, format='%(levelname)s : %(asctime)s : %(message)s')
+        logging.basicConfig(
+                #filename='rtwl_staproc.log',
+                level=logging.DEBUG, 
+                format='%(levelname)s : %(asctime)s : %(message)s'
+                )
     else:
-        logging.basicConfig(level=logging.INFO, format='%(levelname)s : %(asctime)s : %(message)s')
-    
+        logging.basicConfig(
+                #filename='rtwl_staproc.log',
+                level=logging.INFO, 
+                format='%(levelname)s : %(asctime)s : %(message)s'
+                )
+     
 
     if options.start:          
         rtwlStart(wo) # start

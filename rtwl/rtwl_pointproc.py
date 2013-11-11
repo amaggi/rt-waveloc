@@ -1,10 +1,13 @@
 import logging, pika,time, glob, h5py
 import multiprocessing
-import numpy as np
 from obspy.core import UTCDateTime, Trace
 from obspy.realtime import RtTrace
 from cPickle import dumps, loads
-from rtwl_io import rtwlGetConfig, rtwlParseCommandLine
+from rtwl_io import rtwlGetConfig, rtwlParseCommandLine, setupRabbitMQ
+
+import os
+import numpy as np
+os.system('taskset -p 0xffff %d' % os.getpid())
 
 class rtwlPointStacker(object):
     def __init__(self,wo):
@@ -37,10 +40,8 @@ class rtwlPointStacker(object):
         # stack the ttimes into a numpy array
         self.ttimes_matrix=np.vstack(ttimes_list)
         (self.nsta,self.npts) = self.ttimes_matrix.shape
-        
-        # queue setup
-        #self.connection, self.channel = _setupRabbitMQ()
 
+        #self.npts=70
         # nsta ndependent process for filling up points exchange
         for sta in self.sta_list :
             p = multiprocessing.Process(
@@ -57,7 +58,7 @@ class rtwlPointStacker(object):
         proc_name = multiprocessing.current_process().name
         
         # queue setup
-        connection, channel = _setupRabbitMQ() 
+        connection, channel = setupRabbitMQ('DISTRIBUTE') 
     
         # create one queue
         result = channel.queue_declare(exclusive=True)
@@ -107,7 +108,7 @@ class rtwlPointStacker(object):
                             body=dumps(tr,-1),
                             properties=pika.BasicProperties(delivery_mode=2,)
                             )
-            logging.log(logging.INFO,
+            logging.log(logging.DEBUG,
                             " [D] Sent %r" % 
                             ("Distributed data for station %s"%sta))
             # acknowledge all ok            
@@ -125,7 +126,9 @@ class rtwlPointProcessor(object):
         self.max_length = self.wo.opdict['max_length']
         self.safety_margin = self.wo.opdict['safety_margin']
         self.dt = self.wo.opdict['dt']
-        self.last_common_end_stack = [UTCDateTime(1970,1,1) for i in xrange(self.npts)]
+        self.last_common_end_stack = {}
+        for ip in xrange(self.npts):
+            self.last_common_end_stack[ip] = UTCDateTime(1970,1,1)
         
         # need nsta streams for each point we test (nsta x npts)
         # for shifted waveforms
@@ -139,13 +142,7 @@ class rtwlPointProcessor(object):
                 # distances from each point to every station)
                 rtt.registerRtProcess('scale', factor=1.0)
 
-        # need npts streams to store the point-stacks
-        self.stack_list=[RtTrace(max_length=self.max_length) for ip in xrange(self.npts)]
-        
-        # register stack procesing here
-        for rtt in self.stack_list:
-            # This is where we would add or lower weights if we wanted to
-            rtt.registerRtProcess('scale', factor=1.0)
+
         # rt streams must be indexed by station name
         self.pt_sta_dict = {}
         for sta in sta_list:
@@ -154,7 +151,7 @@ class rtwlPointProcessor(object):
         
         # independent process (for parallel calculation)
         for ip in xrange(self.npts):
-#        for ip in xrange(1000):
+#        for ip in xrange(50):
             p = multiprocessing.Process(
                                         name='proc_%d'%ip,
                                         target=self._do_proc,
@@ -166,7 +163,7 @@ class rtwlPointProcessor(object):
         proc_name = multiprocessing.current_process().name
     
         # queue setup
-        connection, channel = _setupRabbitMQ()
+        connection, channel = setupRabbitMQ('POINTPROC')
         
         # create one queue
         result = channel.queue_declare(exclusive=True)
@@ -270,26 +267,15 @@ class rtwlPointProcessor(object):
                             )
             logging.log(logging.INFO,
                             " [P] Sent %r:%r" % 
-                            ("%d"%ip, "Stacked data for point %s"
-                            %(tr.stats.station)))
+                            ("%d"%ip, "Stacked data for point %s : %s - %s"
+                            %(tr.stats.station, 
+                            tr.stats.starttime.isoformat(), 
+                            tr.stats.endtime.isoformat())))
                             
-def _setupRabbitMQ():
-    # set up rabbitmq
-    connection = pika.BlockingConnection(
-                        pika.ConnectionParameters(
-                        host='localhost'))
-    channel = connection.channel()
-    
-    # set up exchanges for data and info
-    channel.exchange_declare(exchange='stacks',exchange_type='topic')
-    channel.exchange_declare(exchange='points',exchange_type='topic')
-    channel.exchange_declare(exchange='info',    exchange_type='fanout')
-    channel.exchange_declare(exchange='proc_data',exchange_type='topic')
-    
-    return connection, channel   
+
  
 def rtwlStop(wo):
-    connection, channel = _setupRabbitMQ()
+    connection, channel = setupRabbitMQ('INFO')
     #sendPoisonPills(channel,wo)
     time.sleep(4)
     connection.close()
@@ -310,7 +296,7 @@ def rtwlStart(wo):
     
 def receive_info():
     proc_name = multiprocessing.current_process().name
-    connection, channel = _setupRabbitMQ()
+    connection, channel = setupRabbitMQ('INFO')
 
     # bind to the info fanout
     result = channel.queue_declare(exclusive=True)
@@ -349,10 +335,17 @@ if __name__=='__main__':
     options=rtwlParseCommandLine()
 
     if options.debug:
-        logging.basicConfig(level=logging.DEBUG, format='%(levelname)s : %(asctime)s : %(message)s')
+        logging.basicConfig(
+                #filename='rtwl_pointproc.log',
+                level=logging.DEBUG, 
+                format='%(levelname)s : %(asctime)s : %(message)s'
+                )
     else:
-        logging.basicConfig(level=logging.INFO, format='%(levelname)s : %(asctime)s : %(message)s')
-    
+        logging.basicConfig(
+                #filename='rtwl_pointproc.log',
+                level=logging.INFO, 
+                format='%(levelname)s : %(asctime)s : %(message)s'
+                ) 
 
     if options.start:          
         rtwlStart(wo) # start

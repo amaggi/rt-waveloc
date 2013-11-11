@@ -1,5 +1,6 @@
 import numpy as np
 import optparse
+import pika
 from options import RtWavelocOptions
 
 """
@@ -47,6 +48,9 @@ def _verifyParameters(p):
     # names of floating point parameters
     float_names=['max_length','safety_margin','filt_f0','filt_sigma',
                 'kwin','dt']
+                
+    # names of integer parameters
+    int_names=['syn_npts']
     
     # cleanup types in dictionary
     try:
@@ -65,6 +69,10 @@ def _verifyParameters(p):
         for name in float_names:
             val=p[name]
             p[name]=np.float(val)
+        # deal with the int names
+        for name in int_names:
+            val=p[name]
+            p[name]=np.int(val)        
         # deal with the string names (just check they exist)
         for name in string_names:
             val=p[name]
@@ -86,3 +94,36 @@ def rtwlParseCommandLine():
 
     (options,arguments)=p.parse_args()
     return options
+    
+def setupRabbitMQ(proc_type=''):
+    # set up rabbitmq
+    connection = pika.BlockingConnection(
+                        pika.ConnectionParameters(
+                        host='localhost'))
+    channel = connection.channel()
+    
+    if proc_type == 'INFO':
+        channel.exchange_declare(exchange='info',exchange_type='fanout')        
+    elif proc_type == 'CONTROL':
+        channel.exchange_declare(exchange='raw_data',exchange_type='topic')
+        channel.exchange_declare(exchange='info',exchange_type='fanout')        
+    elif proc_type == 'STAPROC':
+        channel.exchange_declare(exchange='raw_data',exchange_type='topic')
+        channel.exchange_declare(exchange='proc_data',exchange_type='topic')
+    elif proc_type == 'DISTRIBUTE':
+        channel.exchange_declare(exchange='proc_data',exchange_type='topic')
+        channel.exchange_declare(exchange='points',exchange_type='topic')
+    elif proc_type == 'POINTPROC':
+        channel.exchange_declare(exchange='points',exchange_type='topic')
+        channel.exchange_declare(exchange='stacks',exchange_type='topic')
+    elif proc_type == 'STACKPROC':
+        channel.exchange_declare(exchange='stacks',exchange_type='topic')
+    else:
+        channel.exchange_declare(exchange='raw_data',exchange_type='topic')
+        channel.exchange_declare(exchange='proc_data',exchange_type='topic')
+        channel.exchange_declare(exchange='points',exchange_type='topic')
+        channel.exchange_declare(exchange='stacks',exchange_type='topic')
+        channel.exchange_declare(exchange='info',exchange_type='fanout')
+        
+    
+    return connection, channel   

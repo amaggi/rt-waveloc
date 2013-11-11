@@ -2,32 +2,21 @@ import logging
 import pika
 import time
 from cPickle import dumps, loads
-from rtwl_io import rtwlGetConfig, rtwlParseCommandLine
+from rtwl_io import rtwlGetConfig, rtwlParseCommandLine, setupRabbitMQ
+from synthetics import make_synthetic_data, generate_random_test_points
 
-def _setupRabbitMQ():
-    # set up rabbitmq
-    connection = pika.BlockingConnection(
-                        pika.ConnectionParameters(
-                        host='localhost'))
-    channel = connection.channel()
-    
-    # set up exchanges for data and info
-    channel.exchange_declare(exchange='raw_data',exchange_type='topic')
-    channel.exchange_declare(exchange='info',    exchange_type='fanout')
-    
-    return connection, channel   
 
 def rtwlStop(wo):
-    connection, channel = _setupRabbitMQ()
+    connection, channel = setupRabbitMQ('CONTROL')
     sendPoisonPills(channel,wo)
-    time.sleep(4)
+    time.sleep(10)
     connection.close()
     
 def rtwlStart(wo):
     """
     Starts rtwl.
     """
-    connection, channel = _setupRabbitMQ()
+    connection, channel = setupRabbitMQ('CONTROL')
 
     if wo.run_offline:
         # Run in offline mode
@@ -36,6 +25,10 @@ def rtwlStart(wo):
         import glob,os
         from obspy.core import read
         
+        if wo.is_syn :
+            obs_list, ot, (x0,y0,z0) = make_synthetic_data(wo)
+            generate_random_test_points(wo,loc0=(x0,y0,z0))
+
         # read data
         fnames=glob.glob(os.path.join(wo.data_dir, wo.opdict['data_glob']))
         obs_list=[]
