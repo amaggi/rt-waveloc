@@ -74,19 +74,17 @@ class rtwlStacker(object):
                                     )
         
         channel.basic_qos(prefetch_count=1)
-        try:
-            channel.start_consuming()
-        except UserWarning:
-            logging.log(logging.INFO,"Received STOP signal from stackproc")
-            channel.basic_cancel(consumer_tag)
+        channel.start_consuming()
+        logging.log(logging.INFO,"Received STOP signal : stackproc")
             
     def _callback_proc(self, ch, method, properties, body):
         if body=='STOP' :
             
             ch.basic_ack(delivery_tag = method.delivery_tag)
             ch.stop_consuming()
+            for tag in ch.consumer_tags:
+                ch.basic_cancel(tag)
 
-            raise UserWarning
         else:
             
             ip=int(method.routing_key)
@@ -207,20 +205,17 @@ def receive_info():
                       #no_ack=True
                       )
     
-    try:
-        channel.start_consuming()
-    except UserWarning:
-        logging.log(logging.INFO,"Received UserWarning from %s"%proc_name)
-        channel.stop_consuming()
-        channel.basic_cancel(consumer_tag)
+    channel.start_consuming()
+    logging.log(logging.INFO,"Received UserWarning : %s"%proc_name)
     
   
 def callback_info(ch, method, properties, body):
     
     if body=='STOP':
         logging.log(logging.INFO, "rtwl_pointproc received poison pill")
-        raise UserWarning
-
+        ch.stop_consuming()
+        for tag in ch.consumer_tags:
+            ch.basic_cancel(tag)
 
     
 

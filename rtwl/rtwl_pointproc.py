@@ -76,17 +76,13 @@ class rtwlPointStacker(object):
                                     )
         
         channel.basic_qos(prefetch_count=1)
-        try:
-            channel.start_consuming()
-        except UserWarning:
-            logging.log(logging.INFO,"Received STOP signal from %s"%proc_name)
-            channel.basic_cancel(consumer_tag)
+        channel.start_consuming()
+        logging.log(logging.INFO,"Received STOP signal : %s"%proc_name)
 
     def _callback_distribute(self, ch, method, properties, body):
         if body=='STOP' :
             sta=method.routing_key
             ch.basic_ack(delivery_tag = method.delivery_tag)
-            ch.stop_consuming()
             # pass on to next exchange
             for ip in xrange(self.npts):
                 ch.basic_publish(exchange='points',
@@ -94,7 +90,9 @@ class rtwlPointStacker(object):
                             body='STOP',
                             properties=pika.BasicProperties(delivery_mode=2,)
                             )
-            raise UserWarning
+            ch.stop_consuming()
+            for tag in ch.consumer_tags:
+                ch.basic_cancel(tag)
         else:
             # unpack data packet 
             tr=loads(body)
@@ -181,11 +179,8 @@ class rtwlPointProcessor(object):
                                     )
         
         channel.basic_qos(prefetch_count=1)
-        try:
-            channel.start_consuming()
-        except UserWarning:
-            logging.log(logging.INFO,"Received UserWarning from %s"%proc_name)
-            channel.basic_cancel(consumer_tag)
+        channel.start_consuming()
+        logging.log(logging.INFO,"Received UserWarning : %s"%proc_name)
 
     def _callback_proc(self, ch, method, properties, body):
         if body=='STOP' :
@@ -193,14 +188,16 @@ class rtwlPointProcessor(object):
             ip = int(method.routing_key.split('.')[1])
             
             ch.basic_ack(delivery_tag = method.delivery_tag)
-            ch.stop_consuming()
+            
             # pass on to next exchange
             ch.basic_publish(exchange='stacks',
                             routing_key='%d'%ip,
                             body='STOP',
                             properties=pika.BasicProperties(delivery_mode=2,)
                             )
-            raise UserWarning
+            ch.stop_consuming()
+            for tag in ch.consumer_tags:
+                ch.basic_cancel(tag)
         else:
             
             sta = method.routing_key.split('.')[0]
@@ -310,20 +307,19 @@ def receive_info():
                       #no_ack=True
                       )
     
-    try:
-        channel.start_consuming()
-    except UserWarning:
-        logging.log(logging.INFO,"Received UserWarning from %s"%proc_name)
-        channel.stop_consuming()
-        channel.basic_cancel(consumer_tag)
+    
+    channel.start_consuming()
+    logging.log(logging.INFO,"Received STOP signal : %s"%proc_name)
+    
     
   
 def callback_info(ch, method, properties, body):
     
     if body=='STOP':
         logging.log(logging.INFO, "rtwl_pointproc received poison pill")
-        raise UserWarning
-
+        ch.stop_consuming()
+        for tag in ch.consumer_tags:
+            ch.basic_cancel(tag)
 
     
 if __name__=='__main__':

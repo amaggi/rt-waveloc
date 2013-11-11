@@ -9,7 +9,7 @@ from synthetics import make_synthetic_data, generate_random_test_points
 def rtwlStop(wo):
     connection, channel = setupRabbitMQ('CONTROL')
     sendPoisonPills(channel,wo)
-    time.sleep(10)
+    time.sleep(1)
     connection.close()
     
 def rtwlStart(wo):
