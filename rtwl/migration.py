@@ -182,7 +182,12 @@ class RtMigrator(object):
                 t0=time.time()
                 self.point_rt_list[ip][ista].append(pp_data_tmp, gap_overlap_check = True)
                 t_append += time.time() - t0
-
+                if self.do_dump:
+                    if ip==0 and ista==0 :
+                        f=open('migrator_point00.dump','w')
+                        dump(self.point_rt_list[ip][ista], f, -1)
+                        f.close()
+                        
         logging.log(logging.INFO,
             "In updateData : %.2f s in process and %.2f s in data copy and %.2f s in append and a total of %.2f s" 
             % (t_append_proc, t_copy, t_append, time.time()-t0_update))

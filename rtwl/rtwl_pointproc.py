@@ -46,7 +46,12 @@ class rtwlPointStacker(object):
             p.start()  
               
         # create a processor
-        #rtwlPointProcessor(wo,self.sta_list,self.npts)
+        # make sure no updating is happening before starting processor
+        # processor will not update after this
+        with self.ttimes_lock:
+            sta_list = self.sta_list
+            npts = self.npts
+        rtwlPointProcessor(wo,sta_list,npts,do_dump)
 
     
     def _load_ttimes(self):
@@ -193,9 +198,12 @@ class rtwlPointStacker(object):
                 
         
 class rtwlPointProcessor(object):
-    def __init__(self,wo,sta_list,npts) :
+    def __init__(self,wo,sta_list,npts, do_dump = False) :
         
         # basic parameters
+        self.point_lock = multiprocessing.Lock()
+        
+        self.do_dump = do_dump
         self.wo = wo
         self.sta_list=sta_list
         self.nsta = len(sta_list)
@@ -227,16 +235,18 @@ class rtwlPointProcessor(object):
                
         
         # independent process (for parallel calculation)
-        for ip in xrange(self.npts):
-#        for ip in xrange(50):
+        # get number of processes automatically somehow (config file ?)
+        # for now set to 10
+        nprocs = 10
+        for i in xrange(nprocs):
             p = multiprocessing.Process(
-                                        name='proc_%d'%ip,
+                                        name='proc_%d'%i,
                                         target=self._do_proc,
-                                        args=(ip,))
+                                        )
             p.start()
         
             
-    def _do_proc(self,ip):
+    def _do_proc(self):
         proc_name = multiprocessing.current_process().name
     
         # queue setup
@@ -249,7 +259,8 @@ class rtwlPointProcessor(object):
         # bind to all stations            
         channel.queue_bind(exchange='points', 
                                     queue=queue_name, 
-                                    routing_key='*.%d'%ip)
+                                    routing_key='#',
+                                    )
                                     
         consumer_tag=channel.basic_consume(
                                     self._callback_proc,
@@ -287,7 +298,15 @@ class rtwlPointProcessor(object):
             tr=loads(body)
             
             # add shifted trace
-            self.point_rt_list[ip][ista].append(tr, gap_overlap_check = True)
+            with self.point_lock:
+                self.point_rt_list[ip][ista].append(tr, 
+                                        gap_overlap_check = True
+                                        )
+                if self.do_dump:
+                    if ip==0 and ista==0 :
+                        f=open('pointproc_point00.dump','w')
+                        dump(self.point_rt_list[ip][ista], f, -1)
+                        f.close()
 
             # update stack if possible
             self._updateStack(ip,ch)
@@ -302,46 +321,47 @@ class rtwlPointProcessor(object):
         
         nsta=self.nsta
         # get common start-time for this point
-        common_start=max([self.point_rt_list[ip][ista].stats.starttime \
+        with self.point_lock :
+            common_start=max([self.point_rt_list[ip][ista].stats.starttime \
                  for ista in xrange(nsta)])
-        common_start=max(common_start,self.last_common_end_stack[ip])
-        # get list of stations for which the end-time is compatible
-        # with the common_start time and the safety buffer
-        ista_ok=[ista for ista in xrange(nsta) if 
+            common_start=max(common_start,self.last_common_end_stack[ip])
+            # get list of stations for which the end-time is compatible
+            # with the common_start time and the safety buffer
+            ista_ok=[ista for ista in xrange(nsta) if 
                 (self.point_rt_list[ip][ista].stats.endtime - common_start) 
                 > self.safety_margin]
         
-        # if got data for all stations then stack (TODO : make this more robust)
-        if len(ista_ok)==self.nsta:
+            # if got data for all stations then stack (TODO : make this more robust)
+            if len(ista_ok)==self.nsta:
             
-            # get common end-time
-            common_end=min([ self.point_rt_list[ip][ista].stats.endtime for ista in ista_ok])
-            self.last_common_end_stack[ip]=common_end+self.dt
+                # get common end-time
+                common_end=min([ self.point_rt_list[ip][ista].stats.endtime for ista in ista_ok])
+                self.last_common_end_stack[ip]=common_end+self.dt
             
-            # prepare stack
-            c_list=[]
-            for ista in ista_ok:
-                tr=self.point_rt_list[ip][ista].copy()
-                tr.trim(common_start, common_end)
-                c_list.append(np.array(tr.data[:]))
-            tr_common=np.vstack(c_list)
+                # prepare stack
+                c_list=[]
+                for ista in ista_ok:
+                    tr=self.point_rt_list[ip][ista].copy()
+                    tr.trim(common_start, common_end)
+                    c_list.append(np.array(tr.data[:]))
+                tr_common=np.vstack(c_list)
             
-            # do stack
-            stack_data = np.sum(tr_common, axis=0)
+                # do stack
+                stack_data = np.sum(tr_common, axis=0)
             
-            # prepare trace for passing up
-            stats={'station':'%d'%ip, 'npts':len(stack_data), 'delta':self.dt, \
+                # prepare trace for passing up
+                stats={'station':'%d'%ip, 'npts':len(stack_data), 'delta':self.dt, \
                 'starttime':common_start}
-            tr=Trace(data=stack_data,header=stats)
+                tr=Trace(data=stack_data,header=stats)
             
-            # send the stack on to the stacks exchange
-            message=dumps(tr,-1)
-            ch.basic_publish(exchange='stacks',
+                # send the stack on to the stacks exchange
+                message=dumps(tr,-1)
+                ch.basic_publish(exchange='stacks',
                             routing_key='%d'%ip,
                             body=message,
                             properties=pika.BasicProperties(delivery_mode=2,)
                             )
-            logging.log(logging.INFO,
+                logging.log(logging.INFO,
                             " [P] Sent %r:%r" % 
                             ("%d"%ip, "Stacked data for point %s : %s - %s"
                             %(tr.stats.station, 
@@ -360,10 +380,6 @@ def rtwlStart(wo):
     """
     Starts processing.
     """
-
-    # set up process to listen to info
-    p_info = multiprocessing.Process(name='receive_info',target=receive_info)                     
-    p_info.start()
     
     rtwlPointStacker(wo)
     
