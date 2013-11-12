@@ -28,8 +28,16 @@ def rtwlStart(wo):
         if wo.is_syn :
             obs_list, ot, (x0,y0,z0) = make_synthetic_data(wo)
             generate_random_test_points(wo,loc0=(x0,y0,z0))
-            time.sleep(2)
-        
+            #time.sleep(2)
+            # tell anyone who is listening that the ttimes have changed
+            body='SYN_TTIMES_CHANGED'
+            channel.basic_publish(exchange='info',
+                            routing_key='',
+                            body=body,
+                            properties=pika.BasicProperties(delivery_mode=2,)
+                            )
+            logging.log(logging.INFO, "info : rtwl_control sent %s"%body)
+
         else:
             # read data
             fnames=glob.glob(os.path.join(wo.data_dir, wo.opdict['data_glob']))

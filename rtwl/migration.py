@@ -1,4 +1,4 @@
-import h5py, glob, time
+import h5py, glob, time, logging
 import numpy as np
 from obspy.core import Trace, UTCDateTime
 from obspy.realtime import RtTrace
@@ -65,6 +65,7 @@ class RtMigrator(object):
         # stack the ttimes into a numpy array
         self.ttimes_matrix=np.vstack(ttimes_list)
         (self.nsta,self.npts) = self.ttimes_matrix.shape
+
         
         # if do_dump, then dump ttimes_matrix to file for debugging
         if self.do_dump:
@@ -72,7 +73,7 @@ class RtMigrator(object):
             f=open(filename,'w')
             dump(self.ttimes_matrix,f,-1)
             f.close()
-
+            
         # initialize the RtTrace(s)
         ##########################
         max_length = wo.opdict['max_length']
@@ -182,7 +183,9 @@ class RtMigrator(object):
                 self.point_rt_list[ip][ista].append(pp_data_tmp, gap_overlap_check = True)
                 t_append += time.time() - t0
 
-        print "In updateData : %.2f s in process and %.2f s in data copy and %.2f s in append and a total of %.2f s" % (t_append_proc, t_copy, t_append, time.time()-t0_update)
+        logging.log(logging.INFO,
+            "In updateData : %.2f s in process and %.2f s in data copy and %.2f s in append and a total of %.2f s" 
+            % (t_append_proc, t_copy, t_append, time.time()-t0_update))
 
     def updateStacks(self):
 

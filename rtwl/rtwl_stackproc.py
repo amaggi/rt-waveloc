@@ -9,7 +9,7 @@ from plotting import plotMaxXYZ
 
 import os
 import numpy as np
-os.system('taskset -p 0xffff %d' % os.getpid())
+#os.system('taskset -p 0xffff %d' % os.getpid())
 
 class rtwlStacker(object):
     def __init__(self,wo):

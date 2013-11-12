@@ -8,7 +8,7 @@ from rtwl_io import rtwlGetConfig, rtwlParseCommandLine, setupRabbitMQ
 
 import os
 import numpy as np
-os.system('taskset -p 0xffff %d' % os.getpid())
+#os.system('taskset -p 0xffff %d' % os.getpid())
 
 
 ###############

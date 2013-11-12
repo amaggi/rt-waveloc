@@ -1,4 +1,4 @@
-import unittest
+import unittest, logging
 import multiprocessing
 import os, glob
 import time
@@ -15,7 +15,7 @@ class SyntheticProcessingTests(unittest.TestCase):
 
     def setUp(self):
         from rtwl_io import rtwlGetConfig
-        
+                
         # read config file
         self.wo = rtwlGetConfig('test_data/test_rtwl_syn.config')
     
@@ -41,6 +41,8 @@ class SyntheticProcessingTests(unittest.TestCase):
         # prepare rt processing using rtwl
         p=multiprocessing.Process(target=self._run_staproc, args=(self.wo, True,))
         p.start()
+        
+        # need to give time for the receiving ends to get set up before sending
         time.sleep(1)
         
         # launch process (sets up synthetic test)
@@ -120,6 +122,8 @@ class SyntheticProcessingTests(unittest.TestCase):
         
         q.start()
         p.start()
+        
+        # need to give time for the receiving ends to get set up before sending
         time.sleep(1)
         
         # launch process (sets up synthetic test)
@@ -165,8 +169,7 @@ class SyntheticProcessingTests(unittest.TestCase):
 
 if __name__ == '__main__':
 
-    import logging
-    #logging.basicConfig(level=logging.INFO, format='%(levelname)s : %(asctime)s : %(message)s')
+    logging.basicConfig(level=logging.WARNING, format='%(levelname)s : %(asctime)s : %(message)s')
  
     unittest.TextTestRunner(verbosity=2).run(suite())
  

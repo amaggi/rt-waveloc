@@ -116,6 +116,7 @@ def setupRabbitMQ(proc_type=''):
     elif proc_type == 'POINTPROC':
         channel.exchange_declare(exchange='points',exchange_type='topic')
         channel.exchange_declare(exchange='stacks',exchange_type='topic')
+        channel.exchange_declare(exchange='info',exchange_type='fanout')
     elif proc_type == 'STACKPROC':
         channel.exchange_declare(exchange='stacks',exchange_type='topic')
     else:

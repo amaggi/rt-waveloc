@@ -7,50 +7,37 @@ from rtwl_io import rtwlGetConfig, rtwlParseCommandLine, setupRabbitMQ
 
 import os
 import numpy as np
-os.system('taskset -p 0xffff %d' % os.getpid())
+#os.system('taskset -p 0xffff %d' % os.getpid())
 
 class rtwlPointStacker(object):
     def __init__(self,wo, do_dump=False):
     
+        # create a lock for the ttimes matrix
+        self.ttimes_lock = multiprocessing.Lock()
+        
+        self.wo = wo
         self.do_dump = do_dump
         self.dt = wo.opdict['dt']
-        # initialize the travel-times 
-        ttimes_fnames=glob.glob(wo.ttimes_glob)
         
-        # get basic lengths by reading the first file
-        f=h5py.File(ttimes_fnames[0],'r')
-    
-        # copy the x, y, z data over
-        self.x = np.array(f['x'][:])
-        self.y = np.array(f['y'][:])
-        self.z = np.array(f['z'][:])
-        f.close()
+        # call _load_ttimes once to set up ttimes_matrix from existing files
+        # if info receives an instruction that files have changed, then
+        # _load_ttimes will be relaunched internally
+        self._load_ttimes()
         
-        # read the files
-        ttimes_list = []
-        self.sta_list=[]
-        for fname in ttimes_fnames:
-            f=h5py.File(fname,'r')
-            # update the list of ttimes
-            ttimes_list.append(np.array(f['ttimes']))
-            sta=f['ttimes'].attrs['station']
-            f.close()
-            # update the list of station names
-            self.sta_list.append(sta)
-        
-        # stack the ttimes into a numpy array
-        self.ttimes_matrix=np.vstack(ttimes_list)
-        (self.nsta,self.npts) = self.ttimes_matrix.shape
-        
-        # if do_dump, then dump ttimes_matrix to file for debugging
-        if self.do_dump:
-            filename='pointproc_ttimes.dump'
-            f=open(filename,'w')
-            dump(self.ttimes_matrix,f,-1)
-            f.close()
+        # create a process for listening to info
+        p_info = multiprocessing.Process(
+                            name='info_monitor',
+                            target=self._receive_info, 
+                            )
+        p_info.start()          
 
         # nsta ndependent process for filling up points exchange
-        for sta in self.sta_list :
+        # note : prepare processors for all stations in config file
+        # there may be fewer stations present in the ttimes_matrix
+        # note : so long as there are no incoming data, none will be distributed
+        #        distribution itself happens with a lock on ttimes_matrix
+        #        and so should not happen while ttimes_matrix is being reloaded
+        for sta in wo.sta_list :
             p = multiprocessing.Process(
                             name='distrib_%s'%sta,
                             target=self._do_distribute, 
@@ -59,8 +46,50 @@ class rtwlPointStacker(object):
             p.start()  
               
         # create a processor
-        rtwlPointProcessor(wo,self.sta_list,self.npts)
+        #rtwlPointProcessor(wo,self.sta_list,self.npts)
 
+    
+    def _load_ttimes(self):
+        
+        # initialize the travel-times 
+        ttimes_fnames=glob.glob(self.wo.ttimes_glob)
+        
+        with self.ttimes_lock :
+       
+            # get basic lengths by reading the first file
+            f=h5py.File(ttimes_fnames[0],'r')
+        
+    
+            # copy the x, y, z data over
+            self.x = np.array(f['x'][:])
+            self.y = np.array(f['y'][:])
+            self.z = np.array(f['z'][:])
+            f.close()
+        
+            # read the files
+            ttimes_list = []
+            self.sta_list=[]
+            for fname in ttimes_fnames:
+                f=h5py.File(fname,'r')
+                # update the list of ttimes
+                ttimes_list.append(np.array(f['ttimes']))
+                sta=f['ttimes'].attrs['station']
+                f.close()
+                # update the list of station names
+                self.sta_list.append(sta)
+        
+            # stack the ttimes into a numpy array
+            self.ttimes_matrix=np.vstack(ttimes_list)
+            (self.nsta,self.npts) = self.ttimes_matrix.shape
+        
+            # if do_dump, then dump ttimes_matrix to file for debugging
+            if self.do_dump:
+                filename='pointproc_ttimes.dump'
+                f=open(filename,'w')
+                dump(self.ttimes_matrix,f,-1)
+                f.close()
+        
+        
     def _do_distribute(self,sta):
         proc_name = multiprocessing.current_process().name
         
@@ -103,21 +132,64 @@ class rtwlPointStacker(object):
         else:
             # unpack data packet 
             tr=loads(body)
+            
             sta=method.routing_key
-            ista=self.sta_list.index(sta)
-            for ip in xrange(self.npts):
-                # do shift
-                tr.stats.starttime -= np.round(self.ttimes_matrix[ista][ip]/self.dt) * self.dt
-                ch.basic_publish(exchange='points',
+            # get info to access ttimes_matrix
+            # so long as it is not being modified right now
+            with self.ttimes_lock:
+                npts = self.npts
+                ista = self.sta_list.index(sta)
+
+                for ip in xrange(npts):
+                    # do shift
+                    tr.stats.starttime -= np.round(self.ttimes_matrix[ista][ip]/self.dt) * self.dt
+                    ch.basic_publish(exchange='points',
                             routing_key='%s.%d'%(sta,ip),
                             body=dumps(tr,-1),
                             properties=pika.BasicProperties(delivery_mode=2,)
                             )
+                
             logging.log(logging.DEBUG,
                             " [D] Sent %r" % 
                             ("Distributed data for station %s"%sta))
             # acknowledge all ok            
             ch.basic_ack(delivery_tag = method.delivery_tag)
+
+    def _receive_info(self):
+        proc_name = multiprocessing.current_process().name
+        connection, channel = setupRabbitMQ('INFO')
+
+        # bind to the info fanout
+        result = channel.queue_declare(exclusive=True)
+        info_queue_name = result.method.queue
+        channel.queue_bind(exchange='info', queue=info_queue_name)
+    
+        logging.log(logging.INFO, " [+] Ready to receive info ...")
+    
+        consumer_tag=channel.basic_consume(self._callback_info,
+                      queue=info_queue_name,
+                      #no_ack=True
+                      )
+        
+        channel.start_consuming()
+        logging.log(logging.INFO,"Received STOP signal : %s"%proc_name)
+    
+    
+  
+    def _callback_info(self,ch, method, properties, body):
+    
+        logging.log(logging.INFO, "info : rtwl_pointproc received %s"%body)
+
+        if body=='STOP':
+            ch.stop_consuming()
+            for tag in ch.consumer_tags:
+                ch.basic_cancel(tag)
+        elif body == 'SYN_TTIMES_CHANGED' :
+            self._load_ttimes()
+            logging.log(logging.INFO, "info : rtwl_pointproc reloaded ttimes")
+        else :
+            logging.log(logging.INFO, "info : no action taken")
+
                 
         
 class rtwlPointProcessor(object):
@@ -298,35 +370,6 @@ def rtwlStart(wo):
 
 
     
-def receive_info():
-    proc_name = multiprocessing.current_process().name
-    connection, channel = setupRabbitMQ('INFO')
-
-    # bind to the info fanout
-    result = channel.queue_declare(exclusive=True)
-    info_queue_name = result.method.queue
-    channel.queue_bind(exchange='info', queue=info_queue_name)
-    
-    print " [+] Ready to receive info ..."
-    
-    consumer_tag=channel.basic_consume(callback_info,
-                      queue=info_queue_name,
-                      #no_ack=True
-                      )
-    
-    
-    channel.start_consuming()
-    logging.log(logging.INFO,"Received STOP signal : %s"%proc_name)
-    
-    
-  
-def callback_info(ch, method, properties, body):
-    
-    if body=='STOP':
-        logging.log(logging.INFO, "rtwl_pointproc received poison pill")
-        ch.stop_consuming()
-        for tag in ch.consumer_tags:
-            ch.basic_cancel(tag)
 
     
 if __name__=='__main__':
