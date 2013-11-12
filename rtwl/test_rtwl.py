@@ -7,9 +7,7 @@ from cPickle import load
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(SyntheticProcessingTests('test_syn_staproc'))
-    suite.addTest(SyntheticProcessingTests('test_syn_ttimes_matrix'))
-    suite.addTest(SyntheticProcessingTests('test_syn_point_stacks'))
+    suite.addTest(SyntheticProcessingTests('serial_parallel_comparison'))
     return suite
     
 class SyntheticProcessingTests(unittest.TestCase):
@@ -23,7 +21,7 @@ class SyntheticProcessingTests(unittest.TestCase):
     def tearDown(self):
         dumpfiles=glob.glob('*.dump')
         for fname in dumpfiles :
-            os.remove(fname)    
+            os.remove(fname) 
 
     def _run_staproc(self, wo, do_dump=False):
         from rtwl_staproc import rtwlStaProcessor
@@ -65,11 +63,15 @@ class SyntheticProcessingTests(unittest.TestCase):
 
         # migration using old_style migrator is finished 
           
-    def test_syn_staproc(self):
+    def _do_parallel_migration(self):
         from rtwl_control import rtwlStart, rtwlStop
-                
+        from migration import RtMigrator
+        
         # prepare rt processing using rtwl
         p=multiprocessing.Process(target=self._run_staproc, args=(self.wo, True,))
+        q=multiprocessing.Process(target=self._run_pointproc, args=(self.wo, True,))
+        
+        q.start()
         p.start()
         
         # need to give time for the receiving ends to get set up before sending
@@ -80,9 +82,19 @@ class SyntheticProcessingTests(unittest.TestCase):
         # stop process
         rtwlStop(self.wo)
         
-        # wait for p to finish
+        # wait for p and q to finish
         p.join()
+        q.join()
+    
+                
+    def serial_parallel_comparison(self):
+  
+        # do migration both ways
+        self._do_parallel_migration()     
+        self._do_serial_migration()
         
+        ############################
+                
         # read processed data from files
         sta_list = self.wo.sta_list
         rtwl_rtt={}
@@ -92,13 +104,8 @@ class SyntheticProcessingTests(unittest.TestCase):
             tr=load(f)
             f.close() 
             rtwl_rtt[sta]=tr 
-                      
- 
-        # do serial migration       
-        self._do_serial_migration()
-        
+                              
         # read dumped processed data from files
-        sta_list = self.wo.sta_list
         mig_rtt={}
         for sta in sta_list : 
             fname='update_data_%s.dump'%sta
@@ -117,42 +124,37 @@ class SyntheticProcessingTests(unittest.TestCase):
                                    np.max(rtwl_rtt[sta].data))
             self.assertEqual(np.argmax(mig_rtt[sta].data), 
                              np.argmax(rtwl_rtt[sta].data))
-    
-    
-    def test_syn_ttimes_matrix(self):
-        from rtwl_control import rtwlStart, rtwlStop
-        from migration import RtMigrator
         
-        # prepare rt processing using rtwl
-        p=multiprocessing.Process(target=self._run_staproc, args=(self.wo, False,))
-        q=multiprocessing.Process(target=self._run_pointproc, args=(self.wo, True,))
+        # check file has been dumped correctly
+        ttimes_filename='pointproc_point00.dump'
+        self.assertTrue(os.path.isfile(ttimes_filename))
+        f=open(ttimes_filename)
+        point00_rtwl=load(f)
+        f.close()
         
-        q.start()
-        p.start()
+        # check file has been dumped correctly
+        ttimes_filename='migrator_point00.dump'
+        self.assertTrue(os.path.isfile(ttimes_filename))
+        f=open(ttimes_filename)
+        point00_migr=load(f)
+        f.close()
         
-        # need to give time for the receiving ends to get set up before sending
-        time.sleep(1)
-        
-        # launch process (sets up synthetic test)
-        rtwlStart(self.wo)
-        # stop process
-        rtwlStop(self.wo)
-        
-        # wait for p and q to finish
-        p.join()
-        q.join()
+        # check the two are equal
+        self.assertEquals(point00_rtwl.stats.npts, 
+                          point00_migr.stats.npts)
+        self.assertEquals(np.max(point00_rtwl.data), 
+                          np.max(point00_migr.data))
+        self.assertEquals(np.argmax(point00_rtwl.data), 
+                          np.argmax(point00_migr.data))
+        self.assertEquals(np.sum(point00_rtwl.data), 
+                          np.sum(point00_migr.data))
         
         # check file has been dumped correctly
         ttimes_filename='pointproc_ttimes.dump'
         self.assertTrue(os.path.isfile(ttimes_filename))
         f=open(ttimes_filename)
         ttimes_matrix_rtwl=load(f)
-        f.close()
-        
-        # get matrix with old-style migrator
-        # don't actually have to do any migrating
-        # as matrix is created on __init__
-        RtMigrator(self.wo, do_dump=True)
+        f.close()        
         
         # check file has been dumped correctly
         ttimes_filename='migrator_ttimes.dump'
@@ -173,56 +175,6 @@ class SyntheticProcessingTests(unittest.TestCase):
         self.assertAlmostEqual(np.min(ttimes_matrix_rtwl), np.min(ttimes_matrix_migr))
         self.assertAlmostEqual(np.max(ttimes_matrix_rtwl), np.max(ttimes_matrix_migr))
         self.assertAlmostEqual(np.average(ttimes_matrix_rtwl), np.average(ttimes_matrix_migr))
-        
-    def test_syn_point_stacks(self):
-        from rtwl_control import rtwlStart, rtwlStop
-        from migration import RtMigrator
-        
-        # prepare rt processing using rtwl
-        p=multiprocessing.Process(target=self._run_staproc, args=(self.wo, False,))
-        q=multiprocessing.Process(target=self._run_pointproc, args=(self.wo, True,))
-        
-        q.start()
-        p.start()
-        
-        # need to give time for the receiving ends to get set up before sending
-        time.sleep(1)
-        
-        # launch process (sets up synthetic test)
-        rtwlStart(self.wo)
-        # stop process
-        rtwlStop(self.wo)
-        
-        # wait for p and q to finish
-        p.join()
-        q.join()        
-        
-        # check file has been dumped correctly
-        ttimes_filename='pointproc_point00.dump'
-        self.assertTrue(os.path.isfile(ttimes_filename))
-        f=open(ttimes_filename)
-        point00_rtwl=load(f)
-        f.close()
-        
-        # do serial migration       
-        self._do_serial_migration()
-        
-        # check file has been dumped correctly
-        ttimes_filename='migrator_point00.dump'
-        self.assertTrue(os.path.isfile(ttimes_filename))
-        f=open(ttimes_filename)
-        point00_migr=load(f)
-        f.close()
-        
-        # check the two are equal
-        self.assertEquals(point00_rtwl.stats.npts, 
-                          point00_migr.stats.npts)
-        self.assertEquals(np.max(point00_rtwl.data), 
-                          np.max(point00_migr.data))
-        self.assertEquals(np.argmax(point00_rtwl.data), 
-                          np.argmax(point00_migr.data))
-        self.assertEquals(np.sum(point00_rtwl.data), 
-                          np.sum(point00_migr.data))
 
 if __name__ == '__main__':
 
