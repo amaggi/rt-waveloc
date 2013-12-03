@@ -2,7 +2,7 @@ import logging, time, glob, h5py
 import multiprocessing
 from obspy.core import UTCDateTime, Trace
 from obspy.realtime import RtTrace
-from cPickle import dumps, loads
+from cPickle import dumps, loads, dump
 from rtwl_io import rtwlGetConfig, rtwlParseCommandLine, setupRabbitMQ
 from plotting import plotMaxXYZ
 
@@ -12,31 +12,37 @@ import numpy as np
 #os.system('taskset -p 0xffff %d' % os.getpid())
 
 class rtwlStacker(object):
-    def __init__(self,wo):
+    def __init__(self, wo, do_dump=False):
     
+        # create a lock for the points to be stacked
+        self.points_lock = multiprocessing.Lock()
+        self.stack_lock = multiprocessing.Lock()
+            
+        self.wo = wo
+        self.do_dump = do_dump
+        
         self.dt = wo.opdict['dt']
         self.max_length = wo.opdict['max_length']
         self.safety_margin = wo.opdict['safety_margin']
 
-        # initialize the travel-times        
-        ttimes_fnames=glob.glob(wo.ttimes_glob)
+        # call _load_points once to set up x, y, z coordinates
+        # of points from existing files
+        # if info receives an instruction that files have changed, then
+        # _load_points will be launched internally
+        self._load_points()
         
-        # get basic lengths by reading the first file
-        f=h5py.File(ttimes_fnames[0],'r')
-    
-        # copy the x, y, z data over
-        self.x = np.array(f['x'][:])
-        self.y = np.array(f['y'][:])
-        self.z = np.array(f['z'][:])
-        f.close()
-        self.npts=len(self.x)
-        #self.npts=70
-
-        
+        # create a process for listening to info
+        p_info = multiprocessing.Process(
+                            name='info_monitor',
+                            target=self._receive_info, 
+                            )
+        p_info.start()                                                
+                                                
         # need npts streams to store the point-stacks
         self.stack_dict={}
-        for ip in xrange(self.npts):
-            self.stack_dict[ip] = RtTrace(max_length=self.max_length)
+        with self.points_lock :
+            for ip in xrange(self.npts):
+                self.stack_dict[ip] = RtTrace(max_length=self.max_length)
         
         # register stack procesing here
         for rtt in self.stack_dict.values():
@@ -74,9 +80,34 @@ class rtwlStacker(object):
                                     )
         
         channel.basic_qos(prefetch_count=1)
-        channel.start_consuming()
+#        channel.start_consuming()
         logging.log(logging.INFO,"Received STOP signal : stackproc")
             
+
+    def _load_points(self):
+            
+        # initialize the travel-times 
+        ttimes_fnames=glob.glob(self.wo.ttimes_glob)
+        
+        with self.points_lock :        
+            # get basic lengths by reading the first file
+            f=h5py.File(ttimes_fnames[0],'r')
+           
+            # copy the x, y, z data over
+            self.x = np.array(f['x'][:])
+            self.y = np.array(f['y'][:])
+            self.z = np.array(f['z'][:])
+            self.npts = len(self.x)
+            f.close()
+            
+            # if do_dump, then dump (x,y,z) to file for debugging
+            if self.do_dump:
+                filename = 'stackproc_xyz.dump'
+                f = open(filename,'w')    
+                dump((self.x, self.y, self.z),f,-1)
+                f.close()
+                
+                
     def _callback_proc(self, ch, method, properties, body):
         if body=='STOP' :
             
@@ -94,12 +125,20 @@ class rtwlStacker(object):
             
             # add shifted trace
             endtime=self.stack_dict[ip].stats.endtime
-            logging.log(logging.DEBUG," [S] %d = %s Adding data with startime %s to endtime %s"
-                %(ip, tr.stats.station, tr.stats.starttime.isoformat(),endtime.isoformat()))
-            self.stack_dict[ip].append(tr, gap_overlap_check = True)
+            logging.log(logging.INFO,
+                    " [S] %d = %s Adding data with startime %s to endtime %s"%
+                    (ip, tr.stats.station, tr.stats.starttime.isoformat(),
+                    endtime.isoformat()))
+            with self.stack_lock :
+                self.stack_dict[ip].append(tr, gap_overlap_check = True)
+                if self.do_dump:
+                    if ip==0 :
+                        f = open('stackproc_stack0.dump','w')
+                        dump(self.stack_dict[ip], f, -1)
+                        f.close()
 
-            # update stack if possible
-            self._updateStack()
+                # update stack if possible
+                #self._updateStack()
             
             # acknowledge all ok
             ch.basic_ack(delivery_tag = method.delivery_tag)
@@ -159,6 +198,41 @@ class rtwlStacker(object):
             stats['station'] = 'zMax'
             tr_z=Trace(data=self.z[argmax_data],header=stats)
             self.z_out.append(tr_z, gap_overlap_check = True)
+
+    def _receive_info(self):
+        proc_name = multiprocessing.current_process().name
+        connection, channel = setupRabbitMQ('INFO')
+
+        # bind to the info fanout
+        result = channel.queue_declare(exclusive=True)
+        info_queue_name = result.method.queue
+        channel.queue_bind(exchange='info', queue=info_queue_name)
+    
+        logging.log(logging.INFO, " [+] Ready to receive info ...")
+    
+        consumer_tag=channel.basic_consume(self._callback_info,
+                      queue=info_queue_name,
+                      #no_ack=True
+                      )
+        
+        channel.start_consuming()
+        logging.log(logging.INFO,"Received STOP signal : %s"%proc_name)
+    
+    
+  
+    def _callback_info(self,ch, method, properties, body):
+    
+        logging.log(logging.INFO, "info : rtwl_stackproc received %s"%body)
+
+        if body=='STOP':
+            ch.stop_consuming()
+            for tag in ch.consumer_tags:
+                ch.basic_cancel(tag)
+        elif body == 'SYN_TTIMES_CHANGED' :
+            self._load_points()
+            logging.log(logging.INFO, "info : rtwl_stackproc reloaded points")
+        else :
+            logging.log(logging.INFO, "info : no action taken")
 
                 
 def rtwlStop(wo):
