@@ -23,18 +23,24 @@ class SyntheticProcessingTests(unittest.TestCase):
         for fname in dumpfiles :
             os.remove(fname) 
 
-    def _run_staproc(self, wo, do_dump=False):
+    def _run_staproc(self, wo, do_dump):
         from rtwl_staproc import rtwlStaProcessor
         
-        # run the processing, with dumping option requested
+        # run the station processing, with dumping option requested
         rtwlStaProcessor(wo, do_dump=do_dump)
       
-    def _run_pointproc(self, wo, do_dump=False):
+    def _run_pointproc(self, wo, do_dump):
         from rtwl_pointproc import rtwlPointStacker
         
-        # run the procesing, dumping as requested
+        # run the point procesing, dumping as requested
         rtwlPointStacker(wo, do_dump=do_dump)     
+
+    def _run_stackproc(self, wo, do_dump):
+        from rtwl_stackproc import rtwlStacker
         
+        # run the stacking, dumping as requested
+        rtwlStacker(wo, do_dump=do_dump)     
+                
     def _do_serial_migration(self):
         from migration import RtMigrator
         from synthetics import make_synthetic_data
@@ -60,19 +66,21 @@ class SyntheticProcessingTests(unittest.TestCase):
                 data_list.append(tr)
             # do one update
             migrator.updateData(data_list)
+            migrator.updateStacks()
 
         # migration using old_style migrator is finished 
           
     def _do_parallel_migration(self):
         from rtwl_control import rtwlStart, rtwlStop
-        from migration import RtMigrator
         
         # prepare rt processing using rtwl
         p=multiprocessing.Process(target=self._run_staproc, args=(self.wo, True,))
         q=multiprocessing.Process(target=self._run_pointproc, args=(self.wo, True,))
+        r=multiprocessing.Process(target=self._run_stackproc, args=(self.wo, True,))
         
         q.start()
         p.start()
+        r.start()
         
         # need to give time for the receiving ends to get set up before sending
         time.sleep(1)
@@ -85,6 +93,7 @@ class SyntheticProcessingTests(unittest.TestCase):
         # wait for p and q to finish
         p.join()
         q.join()
+        r.join()
     
                 
     def serial_parallel_comparison(self):
@@ -94,7 +103,9 @@ class SyntheticProcessingTests(unittest.TestCase):
         self._do_serial_migration()
         
         ############################
-                
+        # TESTS FOR DATA PROCESSING
+        ############################
+        
         # read processed data from files
         sta_list = self.wo.sta_list
         rtwl_rtt={}
@@ -124,7 +135,11 @@ class SyntheticProcessingTests(unittest.TestCase):
                                    np.max(rtwl_rtt[sta].data))
             self.assertEqual(np.argmax(mig_rtt[sta].data), 
                              np.argmax(rtwl_rtt[sta].data))
-        
+
+        ############################
+        # TESTS FOR SHIFTED DATA
+        ############################        
+                        
         # check file has been dumped correctly
         ttimes_filename='pointproc_point00.dump'
         self.assertTrue(os.path.isfile(ttimes_filename))
@@ -142,12 +157,11 @@ class SyntheticProcessingTests(unittest.TestCase):
         # check the two are equal
         self.assertEquals(point00_rtwl.stats.npts, 
                           point00_migr.stats.npts)
-        self.assertEquals(np.max(point00_rtwl.data), 
-                          np.max(point00_migr.data))
-        self.assertEquals(np.argmax(point00_rtwl.data), 
-                          np.argmax(point00_migr.data))
-        self.assertEquals(np.sum(point00_rtwl.data), 
-                          np.sum(point00_migr.data))
+        np.testing.assert_almost_equal(point00_rtwl.data, point00_migr.data)
+
+        ############################
+        # TESTS FOR TTIMES MATRIX
+        ############################
         
         # check file has been dumped correctly
         ttimes_filename='pointproc_ttimes.dump'
@@ -172,13 +186,55 @@ class SyntheticProcessingTests(unittest.TestCase):
         self.assertEqual(nsta_rtwl, len(time_grid_names))
         self.assertEqual(npts_rtwl, npts_migr)
         self.assertEqual(nsta_rtwl, nsta_migr)
-        self.assertAlmostEqual(np.min(ttimes_matrix_rtwl), np.min(ttimes_matrix_migr))
-        self.assertAlmostEqual(np.max(ttimes_matrix_rtwl), np.max(ttimes_matrix_migr))
-        self.assertAlmostEqual(np.average(ttimes_matrix_rtwl), np.average(ttimes_matrix_migr))
+        np.testing.assert_almost_equal(ttimes_matrix_rtwl, ttimes_matrix_migr)
+
+        ############################
+        # TESTS FOR GRID POINTS
+        ############################
+
+        # check file has been dumped correctly
+        xyz_filename='stackproc_xyz.dump'
+        self.assertTrue(os.path.isfile(xyz_filename))
+        f=open(xyz_filename)
+        (x_rtwl, y_rtwl, z_rtwl) = load(f)
+        f.close()
+               
+        # check file has been dumped correctly
+        xyz_filename='migrator_xyz.dump'
+        self.assertTrue(os.path.isfile(xyz_filename))
+        f=open(xyz_filename)
+        (x_migr, y_migr, z_migr) = load(f)
+        f.close()
+                
+        np.testing.assert_almost_equal(x_migr, x_rtwl)
+
+        ############################
+        # TESTS FOR GRID STACK
+        ############################
+
+        # check file has been dumped correctly
+        stack0_filename='migrator_stack0.dump'
+        self.assertTrue(os.path.isfile(stack0_filename))
+        f=open(stack0_filename)
+        stack0_migr=load(f)
+        f.close()
+       
+        # check file has been dumped correctly
+        stack0_filename='stackproc_stack0.dump'
+        self.assertTrue(os.path.isfile(stack0_filename))
+        f=open(stack0_filename)
+        stack0_rtwl=load(f)
+        f.close()
+
+        # check the two are equal
+        self.assertEquals(stack0_rtwl.stats.npts, 
+                          stack0_migr.stats.npts)
+        np.testing.assert_almost_equal(stack0_rtwl.data, stack0_migr.data)
+
 
 if __name__ == '__main__':
 
-    logging.basicConfig(level=logging.WARNING, format='%(levelname)s : %(asctime)s : %(message)s')
+    logging.basicConfig(level=logging.INFO, format='%(levelname)s : %(asctime)s : %(message)s')
  
     unittest.TextTestRunner(verbosity=2).run(suite())
  
