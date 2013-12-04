@@ -1,6 +1,5 @@
 import numpy as np
 import optparse
-import pika
 from options import RtWavelocOptions
 
 """
@@ -80,6 +79,14 @@ def _verifyParameters(p):
         raise UserWarning('Missing parameter %s in PAR_FILE'%name)
         
 def rtwlGetConfig(config_file):
+    """
+    Read rtwl configuration file rtwl.config 
+    into an RtWavelocOptions object
+
+    :param filename: Full path to rtwl.config filename 
+    :rtype: RtWavelocOptions 
+    :return: rtwl options
+    """
     wo=RtWavelocOptions()
     wo.opdict=readConfig(config_file)
     return wo
@@ -95,36 +102,40 @@ def rtwlParseCommandLine():
     (options,arguments)=p.parse_args()
     return options
     
-def setupRabbitMQ(proc_type=''):
-    # set up rabbitmq
-    connection = pika.BlockingConnection(
-                        pika.ConnectionParameters(
-                        host='localhost'))
-    channel = connection.channel()
-    
-    if proc_type == 'INFO':
-        channel.exchange_declare(exchange='info',exchange_type='fanout')        
-    elif proc_type == 'CONTROL':
-        channel.exchange_declare(exchange='raw_data',exchange_type='topic')
-        channel.exchange_declare(exchange='info',exchange_type='fanout')        
-    elif proc_type == 'STAPROC':
-        channel.exchange_declare(exchange='raw_data',exchange_type='topic')
-        channel.exchange_declare(exchange='proc_data',exchange_type='topic')
-    elif proc_type == 'DISTRIBUTE':
-        channel.exchange_declare(exchange='proc_data',exchange_type='topic')
-        channel.exchange_declare(exchange='points',exchange_type='topic')
-    elif proc_type == 'POINTPROC':
-        channel.exchange_declare(exchange='points',exchange_type='topic')
-        channel.exchange_declare(exchange='stacks',exchange_type='topic')
-        channel.exchange_declare(exchange='info',exchange_type='fanout')
-    elif proc_type == 'STACKPROC':
-        channel.exchange_declare(exchange='stacks',exchange_type='topic')
-    else:
-        channel.exchange_declare(exchange='raw_data',exchange_type='topic')
-        channel.exchange_declare(exchange='proc_data',exchange_type='topic')
-        channel.exchange_declare(exchange='points',exchange_type='topic')
-        channel.exchange_declare(exchange='stacks',exchange_type='topic')
-        channel.exchange_declare(exchange='info',exchange_type='fanout')
+
         
     
-    return connection, channel   
+    
+#def setupRabbitMQ(proc_type=''):
+#    # set up rabbitmq
+#    connection = pika.BlockingConnection(
+#                        pika.ConnectionParameters(
+#                        host='localhost'))
+#    channel = connection.channel()
+#    
+#    if proc_type == 'INFO':
+#        channel.exchange_declare(exchange='info',exchange_type='fanout')        
+#    elif proc_type == 'CONTROL':
+#        channel.exchange_declare(exchange='raw_data',exchange_type='topic')
+#        channel.exchange_declare(exchange='info',exchange_type='fanout')        
+#    elif proc_type == 'STAPROC':
+#        channel.exchange_declare(exchange='raw_data',exchange_type='topic')
+#        channel.exchange_declare(exchange='proc_data',exchange_type='topic')
+#    elif proc_type == 'DISTRIBUTE':
+#        channel.exchange_declare(exchange='proc_data',exchange_type='topic')
+#        channel.exchange_declare(exchange='points',exchange_type='topic')
+#    elif proc_type == 'POINTPROC':
+#        channel.exchange_declare(exchange='points',exchange_type='topic')
+#        channel.exchange_declare(exchange='stacks',exchange_type='topic')
+#        channel.exchange_declare(exchange='info',exchange_type='fanout')
+#    elif proc_type == 'STACKPROC':
+#        channel.exchange_declare(exchange='stacks',exchange_type='topic')
+#    else:
+#        channel.exchange_declare(exchange='raw_data',exchange_type='topic')
+#        channel.exchange_declare(exchange='proc_data',exchange_type='topic')
+#        channel.exchange_declare(exchange='points',exchange_type='topic')
+#        channel.exchange_declare(exchange='stacks',exchange_type='topic')
+##        channel.exchange_declare(exchange='info',exchange_type='fanout')
+#        
+#    
+#    return connection, channel   

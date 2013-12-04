@@ -7,7 +7,8 @@ from cPickle import load
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(SyntheticProcessingTests('serial_parallel_comparison'))
+#    suite.addTest(SyntheticProcessingTests('serial_parallel_comparison'))
+    suite.addTest(SyntheticProcessingTests('sm_serial_parallel_comparison'))
     return suite
     
 class SyntheticProcessingTests(unittest.TestCase):
