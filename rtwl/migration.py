@@ -73,6 +73,13 @@ class RtMigrator(object):
             f=open(filename,'w')
             dump(self.ttimes_matrix,f,-1)
             f.close()
+        
+        # if do_dump then dump (x,y,z) to file for debugging
+        if self.do_dump:
+            filename='migrator_xyz.dump'
+            f = open(filename, 'w')
+            dump((self.x, self.y, self.z),f,-1)
+            f.close()
             
         # initialize the RtTrace(s)
         ##########################
@@ -227,6 +234,11 @@ class RtMigrator(object):
         #import pdb; pdb.set_trace()
         # append to appropriate stack_list
         self.stack_list[ip].append(tr, gap_overlap_check = True)
+        if self.do_dump:
+            if ip==0 :
+                f = open('migrator_stack0.dump','w')
+                dump(self.stack_list[ip], f, -1)
+                f.close()
 
     def updateMax(self):
 
