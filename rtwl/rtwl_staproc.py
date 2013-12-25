@@ -1,10 +1,10 @@
-import logging, pika,time
+import logging,time
 import multiprocessing
 import am_rt_signal
 from obspy.realtime import RtTrace
 from am_signal import gaussian_filter
 from cPickle import dumps, loads, dump
-from rtwl_io import rtwlGetConfig, rtwlParseCommandLine, setupRabbitMQ
+from rtwl_io import rtwlGetConfig, rtwlParseCommandLine
 
 import os
 import numpy as np
@@ -23,7 +23,7 @@ rt_dict['dx2']=(am_rt_signal.dx2,2)
 ###############
 
 class rtwlStaProcessor(object):
-    def __init__(self,wo, do_dump=False) :
+    def __init__(self,wo, sta_q_dict, sta_lock_dict, do_dump=False) :
         
         # basic parameters
         self.wo = wo
@@ -32,6 +32,8 @@ class rtwlStaProcessor(object):
         self.max_length = self.wo.opdict['max_length']
         self.safety_margin = self.wo.opdict['safety_margin']
         self.dt = self.wo.opdict['dt']
+        self.q_dict = sta_q_dict
+        self.lock_dict = sta_lock_dict
         
         # real-time streams for processing
         self.rtt={}
@@ -40,12 +42,11 @@ class rtwlStaProcessor(object):
         self._register_preprocessing()
         
         
-        # independent process (for parallel calculation)
-        self.lock=multiprocessing.Lock()
+        # independent processes (for parallel calculation)
         p_list=[]
         for sta in self.sta_list:
             p = multiprocessing.Process(
-                                        name='proc_%s'%sta,
+                                        name='staproc_%s'%sta,
                                         target=self._do_proc,
                                         args=(sta,)
                                         )
@@ -85,79 +86,53 @@ class rtwlStaProcessor(object):
         proc_name = multiprocessing.current_process().name
  
         #queue setup
-        connection, channel = setupRabbitMQ('STAPROC')
-   
-        # bind to the raw data 
-        result = channel.queue_declare(exclusive=True)
-        queue_name = result.method.queue
-       
-        channel.queue_bind(exchange='raw_data', 
-                                    queue=queue_name, 
-                                    routing_key=sta)
-        consumer_tag=channel.basic_consume(
-                                    self._callback_proc,
-                                    queue=queue_name,
-                                    #no_ack=True
-                                    )
-        #print proc_name, consumer_tag
-        channel.basic_qos(prefetch_count=1)
-        channel.start_consuming()
+        q = self.q_dict[sta]
+        lock = self.lock_dict[sta]
         
-        logging.log(logging.INFO,"Received STOP signal : %s"%proc_name)       
+        while True :
+            msg = q.get()
+            if msg == 'SIG_STOP':
+                break
+      
+            else:
+                # unpack data packet
+                tr=loads(msg)
+            
+                # pre-correct for filter_shift
+                tr.stats.starttime -= self.filter_shift
+            
+                # make dtype of data float if it is not already
+                tr.data=tr.data.astype(np.float32)
+            
+                # append trace from message to real-time trace
+                # this automatically triggers the rt processing
+                with lock :
+                    pp_data = self.rtt[sta].append(tr, gap_overlap_check = True)
+                    logging.log(logging.INFO,
+                    " [S] Proc %s processed data for station %s"%
+                    (proc_name, pp_data.stats.station))
 
-    def _callback_proc(self, ch, method, properties, body):
-        if body=='STOP':
-            sta = method.routing_key
-            # acknowledge
-            ch.basic_ack(delivery_tag = method.delivery_tag)
-            # send on to next exchange
-            ch.basic_publish(exchange='proc_data',
-                            routing_key=method.routing_key,
-                            body=body,
-                            properties=pika.BasicProperties(delivery_mode=2,)
-                            )
-            ch.stop_consuming()
-            for tag in ch.consumer_tags:
-                ch.basic_cancel(tag)
-            
-                
-        else:
-            # unpack data packet
-            sta=method.routing_key
-            tr=loads(body)
-            
-            # pre-correct for filter_shift
-            tr.stats.starttime -= self.filter_shift
-            
-            # make dtype of data float if it is not already
-            tr.data=tr.data.astype(np.float32)
-            
-            # append trace from message to real-time trace
-            # this automatically triggers the rt processing
-            with self.lock :
-                pp_data = self.rtt[sta].append(tr, gap_overlap_check = True)
-                # if requested, dump rtt trace
-                if self.do_dump:
-                    filename='staproc_%s.dump'%sta
-                    f=open(filename,'w')
-                    dump(self.rtt[sta],f,-1)
-                    f.close()
+                    # if requested, dump rtt trace
+                    if self.do_dump:
+                        filename='staproc_%s.dump'%sta
+                        f=open(filename,'w')
+                        dump(self.rtt[sta],f,-1)
+                        f.close()
                     
-            # send the processed data on to the proc_data exchange
-            message=dumps(pp_data,-1)
-            ch.basic_publish(exchange='proc_data',
-                            routing_key=method.routing_key,
-                            body=message,
-                            properties=pika.BasicProperties(delivery_mode=2,)
-                            )
-            logging.log(logging.INFO,
-                            " [S] Sent %r:%r" % 
-                            (method.routing_key, "Processed data for station %s"
-                            %(pp_data.stats.station)))
-            
-            # signal to the raw_data exchange that have finished with data
-            ch.basic_ack(delivery_tag = method.delivery_tag)
-        
+                ## send the processed data on to the proc_data exchange
+                #message=dumps(pp_data,-1)
+                #ch.basic_publish(exchange='proc_data',
+                #                routing_key=method.routing_key,
+                #                body=message,
+                #                properties=pika.BasicProperties(delivery_mode=2,)
+                #                )
+                
+                ## signal to the raw_data exchange that have finished with data
+                #ch.basic_ack(delivery_tag = method.delivery_tag)
+ 
+        # if you get here, you must have received the STOP signal
+        logging.log(logging.INFO,"Received SIG_STOP signal : %s"%proc_name) 
+               
  
 def rtwlStop(wo):
     connection, channel = setupRabbitMQ('INFO')

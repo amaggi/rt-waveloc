@@ -2,14 +2,15 @@ import logging
 import time
 import glob
 import os
-from multiprocessing import Queue
+from multiprocessing import Queue, Lock, Process
 from cPickle import dumps, loads
 from obspy.core import read
 from rtwl_io import rtwlGetConfig
 from synthetics import make_synthetic_data, generate_random_test_points
+from rtwl_staproc import rtwlStaProcessor
 
 # define SIG_STOP
-SIG_STOP = 'STOP'
+SIG_STOP = 'SIG_STOP'
 SIG_TTIMES_CHANGED = 'SIG_TTIMES_CHANGED'
 
 class rtwlControler(object):
@@ -18,7 +19,13 @@ class rtwlControler(object):
     """
     def __init__(self, wo, do_dump=False):
         self.wo = wo
+        self.do_dump = do_dump
         self._setupQueues()
+        self.staproc_q = Process(
+                                name='staproc_all',
+                                target=self._setupStaProc,
+                                )
+        self.staproc_q.start()
     
     def _setupQueues(self):
         # sets up Queues for rtwl on a single, parallel processing machine
@@ -27,24 +34,34 @@ class rtwlControler(object):
         for qname in ['info_top']:
             self.info_q_dict[qname] = Queue()
         
-        self.sta_q_dict = {}        
+        self.sta_q_dict = {}  
+        self.sta_lock_dict = {}      
         for sta in self.wo.sta_list:
             self.sta_q_dict[sta] = Queue()
+            self.sta_lock_dict[sta] = Lock()
        
+    def _setupStaProc(self):
+        staProc = rtwlStaProcessor(self.wo, self.sta_q_dict, 
+                                   self.sta_lock_dict, self.do_dump)
+    
     def rtwlStop(self):
         """
         Stop the real-time process by sending poisoned pills
         on all the queues.
         """
+        q_dicts = [self.info_q_dict, self.sta_q_dict]
         # sends the poison pills
-        for name,q in self.info_q_dict.iteritems() :
-            print name, q
-            q.put(SIG_STOP)
-            logging.log(logging.INFO, 
+        for qdict in q_dicts :
+            for name,q in qdict.iteritems() :
+                q.put(SIG_STOP)
+                logging.log(logging.INFO, 
                             " [C] rtwl_control sent %s on queue %s" %
                             (SIG_STOP, name))
-            print q.get()
-            q.close()
+                print q.get()
+                q.close()
+
+        # wait for the station processor to finish            
+        self.staproc_q.join()
 
         #for name,q in self.sta_q_dict.iteritems() :
         #    print name, q

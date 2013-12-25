@@ -78,7 +78,7 @@ class SyntheticProcessingTests(unittest.TestCase):
         #q=multiprocessing.Process(target=self._run_pointproc, args=(self.wo, True,))
         #r=multiprocessing.Process(target=self._run_stackproc, args=(self.wo, True,))
         
-        #q.start()
+        #p.start()
         #p.start()
         #r.start()
         
