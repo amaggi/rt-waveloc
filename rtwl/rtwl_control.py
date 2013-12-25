@@ -40,7 +40,10 @@ class rtwlControler(object):
         for name,q in self.info_q_dict.iteritems() :
             print name, q
             q.put(SIG_STOP)
-            print (q.recv())
+            logging.log(logging.INFO, 
+                            " [C] rtwl_control sent %s on queue %s" %
+                            (SIG_STOP, name))
+            print q.get()
             q.close()
 
         #for name,q in self.sta_q_dict.iteritems() :
@@ -63,11 +66,11 @@ class rtwlControler(object):
                 obs_list, ot, (x0,y0,z0) = make_synthetic_data(wo)
                 generate_random_test_points(wo,loc0=(x0,y0,z0))
 
-                for q in self.info_q_dict.values():
+                for name,q in self.info_q_dict.iteritems():
                     q.put(SIG_TTIMES_CHANGED)
                 logging.log(logging.INFO, 
-                            " [C] rtwl_control sent %s" %
-                            SIG_TTIMES_CHANGED)
+                            " [C] rtwl_control sent %s on queue %s" %
+                            (SIG_TTIMES_CHANGED, name))
 
             else:
                 # read data
