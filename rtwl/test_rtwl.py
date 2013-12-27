@@ -139,29 +139,6 @@ class SyntheticProcessingTests(unittest.TestCase):
                              np.argmax(rtwl_rtt[sta].data))
 
         ############################
-        # TESTS FOR SHIFTED DATA
-        ############################        
-                        
-        # check file has been dumped correctly
-        ttimes_filename='pointproc_point00.dump'
-        self.assertTrue(os.path.isfile(ttimes_filename))
-        f=open(ttimes_filename)
-        point00_rtwl=load(f)
-        f.close()
-        
-        # check file has been dumped correctly
-        ttimes_filename='migrator_point00.dump'
-        self.assertTrue(os.path.isfile(ttimes_filename))
-        f=open(ttimes_filename)
-        point00_migr=load(f)
-        f.close()
-        
-        # check the two are equal
-        self.assertEquals(point00_rtwl.stats.npts, 
-                          point00_migr.stats.npts)
-        np.testing.assert_almost_equal(point00_rtwl.data, point00_migr.data)
-
-        ############################
         # TESTS FOR TTIMES MATRIX
         ############################
         
@@ -189,6 +166,31 @@ class SyntheticProcessingTests(unittest.TestCase):
         self.assertEqual(npts_rtwl, npts_migr)
         self.assertEqual(nsta_rtwl, nsta_migr)
         np.testing.assert_almost_equal(ttimes_matrix_rtwl, ttimes_matrix_migr)
+
+
+        ############################
+        # TESTS FOR SHIFTED DATA
+        ############################        
+                        
+        # check file has been dumped correctly
+        ttimes_filename='pointproc_point00.dump'
+        self.assertTrue(os.path.isfile(ttimes_filename))
+        f=open(ttimes_filename)
+        point00_rtwl=load(f)
+        f.close()
+        
+        # check file has been dumped correctly
+        ttimes_filename='migrator_point00.dump'
+        self.assertTrue(os.path.isfile(ttimes_filename))
+        f=open(ttimes_filename)
+        point00_migr=load(f)
+        f.close()
+        
+        # check the two are equal
+        self.assertEquals(point00_rtwl.stats.npts, 
+                          point00_migr.stats.npts)
+        np.testing.assert_almost_equal(point00_rtwl.data, point00_migr.data)
+
 
         ############################
         # TESTS FOR GRID POINTS
