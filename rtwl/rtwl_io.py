@@ -49,7 +49,7 @@ def _verifyParameters(p):
                 'kwin','dt']
                 
     # names of integer parameters
-    int_names=['syn_npts']
+    int_names=['syn_npts', 'n_regions']
     
     # cleanup types in dictionary
     try:

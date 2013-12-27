@@ -1,5 +1,4 @@
 import logging
-import time
 import glob
 import os
 from multiprocessing import Queue, Lock, Process
@@ -40,14 +39,18 @@ class rtwlControler(object):
             self.sta_q_dict[sta] = Queue()
             self.sta_lock_dict[sta] = Lock()
         
-        # queue of processed data
-        self.proc_q = Queue()
+        # queues of processed data
+        # one for each region to be treated by independent processes
+        n_regions = self.wo.opdict['n_regions']
+        self.proc_q_list = []
+        for i in xrange(n_regions) :
+            self.proc_q_list.append(Queue())
         self.proc_lock = Lock()
        
     def _setupStaProc(self):
         staProc = rtwlStaProcessor(self.wo, self.sta_q_dict, 
                                    self.sta_lock_dict, 
-                                   self.proc_q, self.proc_lock, 
+                                   self.proc_q_list, self.proc_lock, 
                                    self.do_dump)
     
     def rtwlStop(self):

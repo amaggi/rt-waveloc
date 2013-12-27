@@ -1,13 +1,12 @@
-import logging,time
+import logging
 import multiprocessing
+import numpy as np
 import am_rt_signal
 from obspy.realtime import RtTrace
 from am_signal import gaussian_filter
 from cPickle import dumps, loads, dump
-from rtwl_io import rtwlGetConfig, rtwlParseCommandLine
 
-import os
-import numpy as np
+SIG_STOP = 'SIG_STOP'
 #os.system('taskset -p 0xffff %d' % os.getpid())
 
 
@@ -23,7 +22,7 @@ rt_dict['dx2']=(am_rt_signal.dx2,2)
 ###############
 
 class rtwlStaProcessor(object):
-    def __init__(self,wo, sta_q_dict, sta_lock_dict, proc_q, proc_lock, 
+    def __init__(self,wo, sta_q_dict, sta_lock_dict, proc_q_list, proc_lock, 
                  do_dump=False) :
         
         # basic parameters
@@ -35,7 +34,7 @@ class rtwlStaProcessor(object):
         self.dt = self.wo.opdict['dt']
         self.q_dict = sta_q_dict
         self.lock_dict = sta_lock_dict
-        self.proc_q = proc_q
+        self.proc_q_list = proc_q_list
         self.proc_lock = proc_lock
         
         # real-time streams for processing
@@ -94,7 +93,7 @@ class rtwlStaProcessor(object):
         
         while True :
             msg = q.get()
-            if msg == 'SIG_STOP':
+            if msg == SIG_STOP:
                 break
       
             else:
@@ -122,96 +121,20 @@ class rtwlStaProcessor(object):
                         dump(self.rtt[sta],f,-1)
                         f.close()
                 
+                # send the processed data onwards to n_regions queues
                 msg = dumps(pp_data, -1)
                 with self.proc_lock :
-                    self.proc_q.put(msg)
-                    self.proc_q.get()
-                    logging.log(logging.INFO,
-                    " [S] Proc %s sent processed data for station %s"%
-                    (proc_name, pp_data.stats.station))
+                    for proc_q in self.proc_q_list :
+                        proc_q.put(msg)
+                        proc_q.get() # necessary until pointproc is working
+                logging.log(logging.INFO,
+                    " [S] Proc %s sent processed data for station %s to %d regions"%
+                    (proc_name, pp_data.stats.station, len(self.proc_q_list)))
                     
  
         # if you get here, you must have received the STOP signal
         logging.log(logging.INFO,"Received SIG_STOP signal : %s"%proc_name) 
                
- 
-def rtwlStop(wo):
-    connection, channel = setupRabbitMQ('INFO')
-    #sendPoisonPills(channel,wo)
-    time.sleep(4)
-    connection.close()
-       
-def rtwlStart(wo):
-    """
-    Starts processing.
-    """
-
-    # set up process to listen to info
-    p_info = multiprocessing.Process(name='receive_info',target=receive_info)                     
-    p_info.start()
-    
-    # set up processes to process data
-    rtwlStaProcessor(wo)
-    
-def receive_info():
-    proc_name = multiprocessing.current_process().name
-    connection, channel = setupRabbitMQ('INFO')
-
-    # bind to the info fanout
-    result = channel.queue_declare(exclusive=True)
-    info_queue_name = result.method.queue
-    channel.queue_bind(exchange='info', queue=info_queue_name)
-    
-    print " [+] Ready to receive info ..."
-    
-    consumer_tag=channel.basic_consume(callback_info,
-                      queue=info_queue_name,
-                      #no_ack=True
-                      )
-    
-    channel.start_consuming()
-    logging.log(logging.INFO,"Received STOP signal from %s"%proc_name)
-        
-    
-  
-def callback_info(ch, method, properties, body):
-    
-    if body=='STOP':
-        logging.log(logging.INFO, "rtwl_staproc received poison pill")
-        for tag in ch.consumer_tags:
-            ch.basic_cancel(tag)
-
-
-
-    
-if __name__=='__main__':
-
-    # read config file
-    wo=rtwlGetConfig('rtwl.config')
-    
-    # parse command line
-    options=rtwlParseCommandLine()
-
-    if options.debug:
-        logging.basicConfig(
-                #filename='rtwl_staproc.log',
-                level=logging.DEBUG, 
-                format='%(levelname)s : %(asctime)s : %(message)s'
-                )
-    else:
-        logging.basicConfig(
-                #filename='rtwl_staproc.log',
-                level=logging.INFO, 
-                format='%(levelname)s : %(asctime)s : %(message)s'
-                )
-     
-
-    if options.start:          
-        rtwlStart(wo) # start
-            
-    if options.stop:
-        rtwlStop(wo)
- 
 
 
     
