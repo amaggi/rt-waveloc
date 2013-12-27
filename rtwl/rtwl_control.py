@@ -21,11 +21,11 @@ class rtwlControler(object):
         self.wo = wo
         self.do_dump = do_dump
         self._setupQueues()
-        self.staproc_q = Process(
+        self.staproc_p = Process(
                                 name='staproc_all',
                                 target=self._setupStaProc,
                                 )
-        self.staproc_q.start()
+        self.staproc_p.start()
     
     def _setupQueues(self):
         # sets up Queues for rtwl on a single, parallel processing machine
@@ -39,10 +39,16 @@ class rtwlControler(object):
         for sta in self.wo.sta_list:
             self.sta_q_dict[sta] = Queue()
             self.sta_lock_dict[sta] = Lock()
+        
+        # queue of processed data
+        self.proc_q = Queue()
+        self.proc_lock = Lock()
        
     def _setupStaProc(self):
         staProc = rtwlStaProcessor(self.wo, self.sta_q_dict, 
-                                   self.sta_lock_dict, self.do_dump)
+                                   self.sta_lock_dict, 
+                                   self.proc_q, self.proc_lock, 
+                                   self.do_dump)
     
     def rtwlStop(self):
         """
@@ -60,7 +66,7 @@ class rtwlControler(object):
                 q.close()
 
         # wait for the station processor to finish            
-        self.staproc_q.join()
+        self.staproc_p.join()
 
           
     def rtwlStart(self):

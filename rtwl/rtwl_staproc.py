@@ -23,7 +23,8 @@ rt_dict['dx2']=(am_rt_signal.dx2,2)
 ###############
 
 class rtwlStaProcessor(object):
-    def __init__(self,wo, sta_q_dict, sta_lock_dict, do_dump=False) :
+    def __init__(self,wo, sta_q_dict, sta_lock_dict, proc_q, proc_lock, 
+                 do_dump=False) :
         
         # basic parameters
         self.wo = wo
@@ -34,6 +35,8 @@ class rtwlStaProcessor(object):
         self.dt = self.wo.opdict['dt']
         self.q_dict = sta_q_dict
         self.lock_dict = sta_lock_dict
+        self.proc_q = proc_q
+        self.proc_lock = proc_lock
         
         # real-time streams for processing
         self.rtt={}
@@ -118,17 +121,12 @@ class rtwlStaProcessor(object):
                         f=open(filename,'w')
                         dump(self.rtt[sta],f,-1)
                         f.close()
-                    
-                ## send the processed data on to the proc_data exchange
-                #message=dumps(pp_data,-1)
-                #ch.basic_publish(exchange='proc_data',
-                #                routing_key=method.routing_key,
-                #                body=message,
-                #                properties=pika.BasicProperties(delivery_mode=2,)
-                #                )
                 
-                ## signal to the raw_data exchange that have finished with data
-                #ch.basic_ack(delivery_tag = method.delivery_tag)
+                msg = dumps(pp_data, -1)
+                with self.proc_lock :
+                    self.proc_q.put(msg)
+                    self.proc_q.get()
+                    
  
         # if you get here, you must have received the STOP signal
         logging.log(logging.INFO,"Received SIG_STOP signal : %s"%proc_name) 
