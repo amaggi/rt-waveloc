@@ -22,7 +22,7 @@ rt_dict['dx2']=(am_rt_signal.dx2,2)
 ###############
 
 class rtwlStaProcessor(object):
-    def __init__(self,wo, sta_q_dict, sta_lock_dict, proc_q_list, proc_lock, 
+    def __init__(self,wo, sta_q_dict, sta_lock_dict, proc_q_dict, proc_lock, 
                  do_dump=False) :
         
         # basic parameters
@@ -34,7 +34,7 @@ class rtwlStaProcessor(object):
         self.dt = self.wo.opdict['dt']
         self.q_dict = sta_q_dict
         self.lock_dict = sta_lock_dict
-        self.proc_q_list = proc_q_list
+        self.proc_q_dict = proc_q_dict
         self.proc_lock = proc_lock
         
         # real-time streams for processing
@@ -123,17 +123,17 @@ class rtwlStaProcessor(object):
                 
                 # send the processed data onwards to n_regions queues
                 msg = dumps(pp_data, -1)
-                with self.proc_lock :
-                    for proc_q in self.proc_q_list :
+                with self.proc_lock :#
+                    for proc_q in self.proc_q_dict.values() :
                         proc_q.put(msg)
-                        proc_q.get() # necessary until pointproc is working
+                        #proc_q.get() # necessary until pointproc is working
                 logging.log(logging.INFO,
                     " [S] Proc %s sent processed data for station %s to %d regions"%
-                    (proc_name, pp_data.stats.station, len(self.proc_q_list)))
+                    (proc_name, pp_data.stats.station, len(self.proc_q_dict)))
                     
  
         # if you get here, you must have received the STOP signal
-        logging.log(logging.INFO,"Received SIG_STOP signal : %s"%proc_name) 
+        logging.log(logging.INFO," [S] Proc %s received SIG_STOP signal."%proc_name) 
                
 
 

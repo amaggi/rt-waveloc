@@ -7,6 +7,7 @@ from obspy.core import read
 from rtwl_io import rtwlGetConfig
 from synthetics import make_synthetic_data, generate_random_test_points
 from rtwl_staproc import rtwlStaProcessor
+from rtwl_pointproc import rtwlPointStacker
 
 # define SIG_STOP
 SIG_STOP = 'SIG_STOP'
@@ -20,17 +21,26 @@ class rtwlControler(object):
         self.wo = wo
         self.do_dump = do_dump
         self._setupQueues()
+        
+        # define the station and point processors
         self.staproc_p = Process(
                                 name='staproc_all',
                                 target=self._setupStaProc,
                                 )
+        self.pointproc_p = Process(
+                                name='pointproc_all',
+                                target=self._setupPointProc,
+                                )
+                                
+        # start the station and point processors
         self.staproc_p.start()
+        self.pointproc_p.start()
     
     def _setupQueues(self):
         # sets up Queues for rtwl on a single, parallel processing machine
         
         self.info_q_dict = {}
-        for qname in ['info_top']:
+        for qname in ['info_top', 'info_pointproc']:
             self.info_q_dict[qname] = Queue()
         
         self.sta_q_dict = {}  
@@ -42,23 +52,28 @@ class rtwlControler(object):
         # queues of processed data
         # one for each region to be treated by independent processes
         n_regions = self.wo.opdict['n_regions']
-        self.proc_q_list = []
-        for i in xrange(n_regions) :
-            self.proc_q_list.append(Queue())
         self.proc_lock = Lock()
+        self.proc_q_dict = {}
+        for i in xrange(n_regions) :
+            reg = 'reg_%d'%i
+            self.proc_q_dict[reg] = Queue()
        
     def _setupStaProc(self):
-        staProc = rtwlStaProcessor(self.wo, self.sta_q_dict, 
+        rtwlStaProcessor(self.wo, self.sta_q_dict, 
                                    self.sta_lock_dict, 
-                                   self.proc_q_list, self.proc_lock, 
+                                   self.proc_q_dict, self.proc_lock, 
                                    self.do_dump)
     
+    def _setupPointProc(self):
+        rtwlPointStacker(self.wo, self.proc_q_dict,
+                                     self.info_q_dict['info_pointproc'],
+                                     self.do_dump)
     def rtwlStop(self):
         """
         Stop the real-time process by sending poisoned pills
         on all the queues.
         """
-        q_dicts = [self.info_q_dict, self.sta_q_dict]
+        q_dicts = [self.info_q_dict, self.sta_q_dict, self.proc_q_dict]
         # sends the poison pills to all queues
         for qdict in q_dicts :
             for name,q in qdict.iteritems() :
@@ -68,8 +83,10 @@ class rtwlControler(object):
                             (SIG_STOP, name))
                 q.close()
 
-        # wait for the station processor to finish            
+
+        # wait for the station and point processors to finish            
         self.staproc_p.join()
+        self.pointproc_p.join()
 
           
     def rtwlStart(self):

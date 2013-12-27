@@ -73,30 +73,14 @@ class SyntheticProcessingTests(unittest.TestCase):
     def _do_parallel_migration(self):
         from rtwl_control import rtwlControler
         
-        # prepare rt processing using rtwl
-        #p=multiprocessing.Process(target=self._run_staproc, args=(self.wo, True,))
-        #q=multiprocessing.Process(target=self._run_pointproc, args=(self.wo, True,))
-        #r=multiprocessing.Process(target=self._run_stackproc, args=(self.wo, True,))
-        
-        #p.start()
-        #p.start()
-        #r.start()
-        
-        # need to give time for the receiving ends to get set up before sending
-        #time.sleep(1)
-        
         # controler
         ctrl = rtwlControler(self.wo, do_dump=True)
         # launch process (sets up synthetic test)
         ctrl.rtwlStart()
         # stop process
+        time.sleep(3)
         ctrl.rtwlStop()
-        
-        # wait for p and q to finish
-        #p.join()
-        #q.join()
-        #r.join()
-    
+            
                 
     def serial_parallel_comparison(self):
   
@@ -173,16 +157,16 @@ class SyntheticProcessingTests(unittest.TestCase):
         ############################        
                         
         # check file has been dumped correctly
-        ttimes_filename='pointproc_point00.dump'
-        self.assertTrue(os.path.isfile(ttimes_filename))
-        f=open(ttimes_filename)
+        filename='pointproc_point00.dump'
+        self.assertTrue(os.path.isfile(filename))
+        f=open(filename)
         point00_rtwl=load(f)
         f.close()
         
         # check file has been dumped correctly
-        ttimes_filename='migrator_point00.dump'
-        self.assertTrue(os.path.isfile(ttimes_filename))
-        f=open(ttimes_filename)
+        filename='migrator_point00.dump'
+        self.assertTrue(os.path.isfile(filename))
+        f=open(filename)
         point00_migr=load(f)
         f.close()
         
