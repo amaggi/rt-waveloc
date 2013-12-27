@@ -126,6 +126,9 @@ class rtwlStaProcessor(object):
                 with self.proc_lock :
                     self.proc_q.put(msg)
                     self.proc_q.get()
+                    logging.log(logging.INFO,
+                    " [S] Proc %s sent processed data for station %s"%
+                    (proc_name, pp_data.stats.station))
                     
  
         # if you get here, you must have received the STOP signal
